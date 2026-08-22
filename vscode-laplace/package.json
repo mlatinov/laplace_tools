@@ -1,0 +1,145 @@
+{
+  "name": "laplace-lang",
+  "displayName": "Laplace Language Support",
+  "description": "Syntax highlighting, semantic coloring, autocomplete, and live diagnostics for .laplace files (a source-to-source preprocessor for Stan). Works unmodified in Positron via Open VSX.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "publisher": "laplace-lang",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "laplace",
+    "stan",
+    "bayesian",
+    "statistics",
+    "language server"
+  ],
+  "activationEvents": [
+    "onLanguage:laplace"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "laplace",
+        "aliases": [
+          "Laplace",
+          "laplace"
+        ],
+        "extensions": [
+          ".laplace"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "laplace",
+        "scopeName": "source.laplace",
+        "path": "./syntaxes/laplace.tmLanguage.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "laplaceData",
+        "description": "Identifier declared in a `data` block"
+      },
+      {
+        "id": "laplaceParameter",
+        "description": "Identifier declared in a `parameters` block"
+      },
+      {
+        "id": "laplaceTransformedParameter",
+        "description": "Identifier declared in a `transformed parameters` block"
+      },
+      {
+        "id": "laplaceGeneratedQuantity",
+        "description": "Identifier declared in a `generated quantities` block"
+      },
+      {
+        "id": "laplaceLocal",
+        "description": "Identifier declared in `transformed data` or as a local"
+      },
+      {
+        "id": "laplaceBuiltinFunction",
+        "description": "Call to a Stan built-in function"
+      },
+      {
+        "id": "laplaceLibraryFunction",
+        "description": "Call to an imported library function (`pkg::func`)"
+      },
+      {
+        "id": "laplaceUserFunction",
+        "description": "Call to a function defined in this file's `functions {}` block"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "laplace",
+        "scopes": {
+          "laplaceData": [
+            "variable.other.readwrite.laplace"
+          ],
+          "laplaceParameter": [
+            "variable.parameter.laplace"
+          ],
+          "laplaceTransformedParameter": [
+            "variable.other.property.laplace"
+          ],
+          "laplaceGeneratedQuantity": [
+            "variable.other.member.laplace"
+          ],
+          "laplaceLocal": [
+            "variable.other.local.laplace"
+          ],
+          "laplaceBuiltinFunction": [
+            "support.function.builtin.laplace"
+          ],
+          "laplaceLibraryFunction": [
+            "support.function.laplace"
+          ],
+          "laplaceUserFunction": [
+            "entity.name.function.laplace"
+          ]
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Laplace",
+      "properties": {
+        "laplace.serverPath": {
+          "type": "string",
+          "default": "laplace-lsp",
+          "description": "Path to the laplace-lsp executable. Defaults to `laplace-lsp` on PATH."
+        },
+        "laplace.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace communication between VS Code and laplace-lsp (for debugging the extension itself)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

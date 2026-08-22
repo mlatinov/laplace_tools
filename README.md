@@ -1,0 +1,183 @@
+# laplace-tools
+
+Editor tooling for [`laplace`](../laplace) — a source-to-source preprocessor
+that compiles `.laplace` files to plain `.stan`. This repo adds a real
+language server plus a VS Code extension so `.laplace`/`.stan` files get
+proper block-role coloring, function-origin coloring, autocomplete, and live
+diagnostics instead of generic Stan syntax highlighting.
+
+Two pieces, built independently:
+
+- **`laplace-lsp/`** — the language server (Rust, [`tower-lsp`](https://github.com/ebkalderon/tower-lsp)).
+  Reuses `laplace`'s `parser`/`resolve`/`docs`/`codegen` modules directly as a
+  library dependency — no reimplemented parsing logic.
+- **`vscode-laplace/`** — a thin VS Code extension (TypeScript) that spawns
+  `laplace-lsp` over stdio. Works unmodified in [Positron](https://positron.posit.co/)
+  once published to Open VSX, since Positron is a Code OSS fork that installs
+  extensions from there — no Positron-specific code exists or is needed.
+
+## What you get
+
+- **Block-role coloring** — identifiers declared in `data`, `parameters`,
+  `transformed parameters`, and `generated quantities` blocks are colored
+  distinctly, including every usage inside `model {}`, not just the
+  declaration site. (`transformed data` locals and Stan-native locals share a
+  fifth "local" color, since Stan's own type system doesn't distinguish them
+  further.)
+- **Function-origin coloring** — a call site is colored differently depending
+  on whether it's a Stan builtin (`normal_lpdf`, `gp_exp_quad_cov`, ...), a
+  `pkg::func()` library import, or a function defined in the current file's
+  `functions {}` block.
+- **Autocomplete** — variables in scope, block/section keywords, and (typing
+  `pkg::`) every exported function of that resolved library.
+- **Live diagnostics** — an unresolved `pkg::func`, a missing/uninstalled
+  library dependency, or a version pin that no longer matches `laplace.lock`
+  is flagged inline, debounced (~350ms after the last edit, not per
+  keystroke) rather than only surfacing at `laplace build` time.
+- **Hover + go-to-definition** on `pkg::func` (via the `docs`/`resolve`
+  modules), as a low-marginal-cost bonus on top of the same symbol tables.
+- **Baseline TextMate grammar** as a fallback layer for the moment before the
+  language server attaches (or if it isn't installed at all): `library {}`,
+  `@laplace` doc comments, `pkg::func()` namespacing, and Stan's own block
+  keywords.
+
+Full Stan-level type checking (e.g. "`normal` expects a scalar, got
+`vector[5]`") is explicitly out of scope — see [Non-goals](#non-goals) below.
+
+## Prerequisites
+
+- **Rust** (stable toolchain; developed against 1.95) to build `laplace-lsp`.
+- The **`laplace` core repo checked out as a sibling directory** — this repo
+  depends on it as a local path dependency (`../../laplace` relative to
+  `laplace-lsp/`), i.e.:
+
+  ```
+  some-parent-dir/
+    laplace/         <- the core compiler (parser/resolve/docs/codegen/validate)
+    laplace-tools/   <- this repo
+  ```
+
+  If your checkout lives somewhere else, either symlink it into place or edit
+  the `path = "../../laplace"` dependency in `laplace-lsp/Cargo.toml`.
+- **Node.js + npm** to build the VS Code extension.
+- `laplace` itself installed and usable (`laplace install`/`laplace add`) in
+  any project you want live diagnostics/`pkg::` completion for — the
+  language server reads the same `~/.laplace/packages/` cache and
+  `laplace.lock` the CLI writes; it never re-implements resolution.
+
+## Building
+
+### The language server
+
+```sh
+cd laplace-lsp
+cargo build --release
+cargo test          # 14 unit/integration tests: scanner, classification, diagnostics
+```
+
+The binary lands at `laplace-lsp/target/release/laplace-lsp`. Put it on
+`PATH` (or point the extension at it directly, see below).
+
+### The VS Code extension
+
+```sh
+cd vscode-laplace
+npm install
+npm run compile
+```
+
+## Installing the extension for local development
+
+Two options:
+
+**A. Run it in an Extension Development Host** (fastest for iterating): open
+`vscode-laplace/` in VS Code and press `F5`. A new VS Code window launches
+with the extension active; open any `.laplace` file in it.
+
+**B. Package and install a `.vsix`** (closer to a real install, and what you'd
+hand to a colleague or sideload into Positron):
+
+```sh
+cd vscode-laplace
+npx @vscode/vsce package --no-dependencies
+code --install-extension laplace-lang-0.1.0.vsix
+```
+
+Either way, if `laplace-lsp` isn't on `PATH`, set its location explicitly in
+VS Code settings:
+
+```json
+{
+  "laplace.serverPath": "/absolute/path/to/laplace-lsp"
+}
+```
+
+### Positron
+
+Positron installs extensions from [Open VSX](https://open-vsx.org/), not the
+VS Code Marketplace. The same `.vsix` built above installs there unmodified —
+sideload it the same way (Positron's extensions view supports "Install from
+VSIX"), or publish once to Open VSX (see below) and install by ID.
+
+## Publishing (maintainers)
+
+```sh
+cd vscode-laplace
+npx @vscode/vsce publish        # VS Code Marketplace
+npx ovsx publish                # Open VSX -- what Positron pulls from
+```
+
+Both need a publisher account and access token configured per their own
+docs; nothing extension-specific is required beyond a real `repository`
+field and a `LICENSE` file in `package.json` (both currently placeholders/
+absent — fill those in before a real publish, `vsce package` will warn but
+not block on it).
+
+## How project context is resolved
+
+The language server never asks the client for a workspace root. For any open
+`.laplace` file it walks upward from the file's directory looking for the
+nearest `laplace.lock`, then reads installed packages from
+`~/.laplace/packages/<name>/<version>/` — the exact layout `laplace
+install`/`add`/`update` already write. If no lockfile is found, diagnostics
+and `pkg::` completion simply have nothing to resolve against (no crash, no
+false positives) until the file sits under a real laplace project.
+
+Full `stanc` type-checking (`laplace::validate`) is **not** wired into live
+diagnostics: it shells out to an external `stanc` binary that isn't
+guaranteed to be installed, which is exactly why the CLI itself only runs it
+behind an opt-in `laplace build --validate` flag. Live diagnostics stick to
+what `codegen` and the lockfile can check without any external dependency.
+
+## Known limitations
+
+- The declaration scanner is shallow by design (see the task's non-goals) —
+  it extracts a name and its owning block, never a type, dimension, or
+  constraint. It does not track `model {}`-local variables (Stan's grammar
+  doesn't reserve a role for those beyond the generic "local" bucket, and
+  scope-tracking real locals would edge toward type inference).
+- Go-to-definition on `pkg::func` does a best-effort first-occurrence text
+  search within the resolved package's `.stan` source (after confirming via
+  the same signature scanner that the function genuinely exists there) — it
+  is not a real reference resolver, and can point at the wrong occurrence if
+  a package calls a function before its own definition in the same file.
+- `stan-builtins.json` is a curated snapshot of Stan's function reference
+  (~560 names, covering scalar math, linear algebra, ODE/algebra solvers, and
+  the common distribution families with their `_lpdf`/`_lpmf`/`_cdf`/`_lcdf`/
+  `_lccdf`/`_rng` suffixes), not a scrape of `stanc`'s canonical function
+  table — a genuinely new or obscure builtin may show up unclassified rather
+  than misclassified.
+
+## Non-goals
+
+Carried over unchanged from the task this was built against — flag these as
+separate future work if they come up, don't try to bolt them onto this
+codebase:
+
+- Full Stan type system / type checking (would mean reimplementing large
+  parts of `stanc3` — if ever tackled, shell out to real `stanc` with a
+  source map, don't hand-roll it).
+- Distribution-aware completion/diagnostics (e.g. validating `normal`'s
+  argument types or support domain).
+- Rename, find-references, call hierarchy, extract-function refactors.
+- Formatting.

@@ -1,0 +1,132 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "laplace",
+  "scopeName": "source.laplace",
+  "fileTypes": ["laplace"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#library-block" },
+    { "include": "#block-keywords" },
+    { "include": "#qualified-call" },
+    { "include": "#control-keywords" },
+    { "include": "#type-keywords" },
+    { "include": "#constants" },
+    { "include": "#strings" },
+    { "include": "#operators" },
+    { "include": "#function-call" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.laplace",
+          "begin": "//\\s*@laplace\\b",
+          "beginCaptures": {
+            "0": { "name": "storage.type.annotation.laplace" }
+          },
+          "end": "$",
+          "patterns": []
+        },
+        {
+          "match": "(//\\s*)(@(?:brief|param|return|example|math)\\b)",
+          "captures": {
+            "1": { "name": "comment.line.double-slash.laplace" },
+            "2": { "name": "keyword.other.doctag.laplace" }
+          }
+        },
+        {
+          "name": "comment.line.double-slash.laplace",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "library-block": {
+      "patterns": [
+        {
+          "match": "\\b(library)\\b\\s*(\\{)",
+          "captures": {
+            "1": { "name": "keyword.control.block.library.laplace" },
+            "2": { "name": "punctuation.section.block.begin.laplace" }
+          }
+        },
+        {
+          "match": "\\b(import)\\b\\s+([A-Za-z_][A-Za-z0-9_-]*)\\s*(?:(@)([A-Za-z0-9_.-]+))?",
+          "captures": {
+            "1": { "name": "keyword.control.import.laplace" },
+            "2": { "name": "entity.name.namespace.laplace" },
+            "3": { "name": "punctuation.separator.version.laplace" },
+            "4": { "name": "constant.numeric.version.laplace" }
+          }
+        }
+      ]
+    },
+    "block-keywords": {
+      "patterns": [
+        {
+          "match": "\\b(transformed)\\s+(data|parameters)\\b",
+          "captures": {
+            "1": { "name": "keyword.control.block.laplace" },
+            "2": { "name": "keyword.control.block.laplace" }
+          }
+        },
+        {
+          "match": "\\b(generated)\\s+(quantities)\\b",
+          "captures": {
+            "1": { "name": "keyword.control.block.laplace" },
+            "2": { "name": "keyword.control.block.laplace" }
+          }
+        },
+        {
+          "name": "keyword.control.block.laplace",
+          "match": "\\b(functions|data|parameters|model)\\b(?=\\s*\\{)"
+        }
+      ]
+    },
+    "qualified-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(::)([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "entity.name.namespace.laplace" },
+        "2": { "name": "punctuation.accessor.double-colon.laplace" },
+        "3": { "name": "support.function.laplace" }
+      }
+    },
+    "control-keywords": {
+      "name": "keyword.control.laplace",
+      "match": "\\b(for|while|if|else|break|continue|return|in|target)\\b"
+    },
+    "type-keywords": {
+      "name": "storage.type.laplace",
+      "match": "\\b(int|real|complex|vector|row_vector|matrix|complex_vector|complex_row_vector|complex_matrix|array|ordered|positive_ordered|simplex|unit_vector|cholesky_factor_corr|cholesky_factor_cov|corr_matrix|cov_matrix|void|tuple)\\b"
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.numeric.laplace",
+          "match": "\\b[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.language.laplace",
+          "match": "\\b(pi|e|positive_infinity|negative_infinity|not_a_number|machine_precision)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.laplace",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.laplace", "match": "\\\\." }
+      ]
+    },
+    "operators": {
+      "name": "keyword.operator.laplace",
+      "match": "(~|<-|\\+=|-=|\\*=|/=|\\.\\*=|\\./=|==|!=|<=|>=|&&|\\|\\||[+\\-*/%^<>=!])"
+    },
+    "function-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "entity.name.function.laplace" }
+      }
+    }
+  }
+}
