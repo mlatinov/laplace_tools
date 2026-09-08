@@ -108,6 +108,13 @@
         }
       }
     ],
+    "iconThemes": [
+      {
+        "id": "laplace-seti",
+        "label": "Laplace",
+        "path": "./icons/seti/vs-seti-icon-theme.json"
+      }
+    ],
     "configuration": {
       "title": "Laplace",
       "properties": {

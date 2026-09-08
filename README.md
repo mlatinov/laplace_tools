@@ -49,6 +49,21 @@ Two pieces, built independently:
   language server attaches (or if it isn't installed at all): `library {}`,
   `@laplace` doc comments, `pkg::func()` namespacing, and Stan's own block
   keywords.
+- **A `.laplace` file icon** — a purple `Λ` glyph (`vscode-laplace/icons/laplace-lambda.svg`,
+  `laplace-lambda-light.svg`), shown the same way `.R`/`.py`/`.jl` get theirs:
+  an icon theme's file-extension mapping, the only slot VS Code/Positron
+  actually renders to the left of the filename. There's no API for an
+  extension to inject a single icon into whatever theme's already active, so
+  `vscode-laplace/icons/seti/` vendors the built-in Seti icon theme
+  (MIT-licensed, `ThirdPartyNotices.txt` alongside it) with just the
+  `.laplace` mapping added — every other file type renders exactly as
+  built-in Seti already does. Pick it via *Preferences: File Icon Theme →
+  Laplace*; if you use a different icon theme day-to-day (Material Icon
+  Theme, vscode-icons, ...), picking "Laplace" means other file types fall
+  back to Seti's icons instead of your usual theme's.
+  `vscode-laplace/icons/laplace-file-icon.png` (a cropped, background-removed
+  version of the project logo, `example_logo.png`) isn't currently wired into
+  anything — kept for reference/future use.
 
 ## Prerequisites
 
