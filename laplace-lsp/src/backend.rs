@@ -17,6 +17,7 @@ use crate::analysis::{self, TOKEN_TYPES};
 use crate::completion;
 use crate::diagnostics;
 use crate::position;
+use crate::stanc;
 use crate::workspace;
 
 /// How long to wait after the last edit before running diagnostics, so a
@@ -57,7 +58,25 @@ impl Backend {
             let Some(text) = documents.get(&uri).map(|entry| entry.clone()) else {
                 return;
             };
-            let diags = diagnostics::compute_diagnostics_for_uri(&uri, &text);
+            let mut diags = diagnostics::compute_diagnostics_for_uri(&uri, &text);
+
+            // Best-effort live `stanc` type-checking (catches missing
+            // semicolons, unknown types, incompatible operand types, ...) on
+            // top of the always-on import/lockfile checks above. Shells out
+            // to a subprocess, so it runs off the async executor; silently
+            // contributes nothing if `stanc` isn't installed.
+            let stanc_uri = uri.clone();
+            let stanc_text = text.clone();
+            if let Ok(stanc_diags) =
+                tokio::task::spawn_blocking(move || stanc::compute_stanc_diagnostics_for_uri(&stanc_uri, &stanc_text))
+                    .await
+            {
+                diags.extend(stanc_diags);
+            }
+
+            if generation.load(Ordering::SeqCst) != my_generation {
+                return; // superseded while the stanc pass was running
+            }
             client.publish_diagnostics(uri, diags, None).await;
         });
     }

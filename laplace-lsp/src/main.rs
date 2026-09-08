@@ -4,6 +4,7 @@ mod builtins;
 mod completion;
 mod diagnostics;
 mod position;
+mod stanc;
 mod workspace;
 
 use std::pin::Pin;

@@ -34,15 +34,21 @@ Two pieces, built independently:
   library dependency, or a version pin that no longer matches `laplace.lock`
   is flagged inline, debounced (~350ms after the last edit, not per
   keystroke) rather than only surfacing at `laplace build` time.
+- **Live Stan-level syntax/type checking** — missing semicolons, unknown
+  types, incompatible operand types, and everything else real `stanc` would
+  catch, also inline and debounced. Best-effort: this shells out to `stanc`
+  (found via `$LAPLACE_STANC`, `PATH`, or the newest `~/.cmdstan/cmdstan-*`),
+  so it silently contributes nothing if `stanc`/cmdstan isn't installed --
+  the checks above never depend on it. An error inside code spliced in from
+  an imported package (rather than your own file) is attributed to that
+  package's `import` statement, since it has no position in your file to
+  point at.
 - **Hover + go-to-definition** on `pkg::func` (via the `docs`/`resolve`
   modules), as a low-marginal-cost bonus on top of the same symbol tables.
 - **Baseline TextMate grammar** as a fallback layer for the moment before the
   language server attaches (or if it isn't installed at all): `library {}`,
   `@laplace` doc comments, `pkg::func()` namespacing, and Stan's own block
   keywords.
-
-Full Stan-level type checking (e.g. "`normal` expects a scalar, got
-`vector[5]`") is explicitly out of scope — see [Non-goals](#non-goals) below.
 
 ## Prerequisites
 
@@ -64,6 +70,11 @@ Full Stan-level type checking (e.g. "`normal` expects a scalar, got
   any project you want live diagnostics/`pkg::` completion for — the
   language server reads the same `~/.laplace/packages/` cache and
   `laplace.lock` the CLI writes; it never re-implements resolution.
+- **Optional: `stanc`/cmdstan**, for live Stan-level syntax/type checking.
+  Not required for anything else here. The language server looks for it in
+  `$LAPLACE_STANC`, then `stanc` on `PATH`, then the newest
+  `~/.cmdstan/cmdstan-*/bin/stanc` (how [cmdstanr](https://mc-stan.org/cmdstanr/)/[cmdstanpy](https://mc-stan.org/cmdstanpy/)
+  typically install it, without putting it on `PATH`).
 
 
 ## Installing the extension for local development
@@ -133,9 +144,6 @@ Carried over unchanged from the task this was built against — flag these as
 separate future work if they come up, don't try to bolt them onto this
 codebase:
 
-- Full Stan type system / type checking (would mean reimplementing large
-  parts of `stanc3` — if ever tackled, shell out to real `stanc` with a
-  source map, don't hand-roll it).
 - Distribution-aware completion/diagnostics (e.g. validating `normal`'s
   argument types or support domain).
 - Rename, find-references, call hierarchy, extract-function refactors.

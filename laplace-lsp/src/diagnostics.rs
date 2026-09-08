@@ -3,11 +3,13 @@
 //! editing an import that doesn't resolve is flagged without running
 //! `laplace build`.
 //!
-//! Full `stanc` type-checking (the `laplace::validate` module) is
-//! deliberately NOT run here: it shells out to an external binary that
-//! isn't guaranteed to be installed, and the CLI itself only runs it behind
-//! an opt-in `--validate` flag for the same reason. Live, always-on
-//! diagnostics stick to what `codegen` + the lockfile can check for free.
+//! Full Stan-level syntax/type checking (missing semicolons, unknown types,
+//! incompatible operand types, ...) is deliberately NOT run here: it
+//! requires shelling out to `stanc`, an external binary that isn't
+//! guaranteed to be installed. That part is best-effort and lives in
+//! `crate::stanc` instead, which silently contributes no diagnostics when
+//! `stanc` can't be found. This module's checks are always-on because they
+//! only need `codegen` + the lockfile, never an external process.
 
 use std::ops::Range;
 use std::path::Path;
@@ -123,7 +125,7 @@ pub fn compute_diagnostics(source: &str, lock: &Lockfile, cache_root: &Path) -> 
     diags
 }
 
-fn import_range(source: &str, block: &LibraryBlock, import: &ImportStatement) -> Range<usize> {
+pub(crate) fn import_range(source: &str, block: &LibraryBlock, import: &ImportStatement) -> Range<usize> {
     let body = &source[block.byte_range.clone()];
     let needle = format!("import {}", import.name);
     if let Some(rel) = body.find(&needle) {
