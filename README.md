@@ -112,27 +112,6 @@ VS Code settings:
 }
 ```
 
-### Positron
-
-Positron installs extensions from [Open VSX](https://open-vsx.org/), not the
-VS Code Marketplace. The same `.vsix` built above installs there unmodified —
-sideload it the same way (Positron's extensions view supports "Install from
-VSIX"), or publish once to Open VSX (see below) and install by ID.
-
-## Publishing (maintainers)
-
-```sh
-cd vscode-laplace
-npx @vscode/vsce publish        # VS Code Marketplace
-npx ovsx publish                # Open VSX -- what Positron pulls from
-```
-
-Both need a publisher account and access token configured per their own
-docs; nothing extension-specific is required beyond a real `repository`
-field and a `LICENSE` file in `package.json` (both currently placeholders/
-absent — fill those in before a real publish, `vsce package` will warn but
-not block on it).
-
 ## How project context is resolved
 
 The language server never asks the client for a workspace root. For any open
