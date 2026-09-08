@@ -65,26 +65,6 @@ Full Stan-level type checking (e.g. "`normal` expects a scalar, got
   language server reads the same `~/.laplace/packages/` cache and
   `laplace.lock` the CLI writes; it never re-implements resolution.
 
-## Building
-
-### The language server
-
-```sh
-cd laplace-lsp
-cargo build --release
-cargo test          # 14 unit/integration tests: scanner, classification, diagnostics
-```
-
-The binary lands at `laplace-lsp/target/release/laplace-lsp`. Put it on
-`PATH` (or point the extension at it directly, see below).
-
-### The VS Code extension
-
-```sh
-cd vscode-laplace
-npm install
-npm run compile
-```
 
 ## Installing the extension for local development
 
