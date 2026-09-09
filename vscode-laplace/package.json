@@ -186,6 +186,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "package": "npx --yes @vscode/vsce package -o laplace-lang-0.1.0.vsix",
     "watch": "tsc -watch -p ./"
   },
   "dependencies": {
