@@ -10,12 +10,8 @@ Both source dialects the compiler accepts are supported: `.laplace` project
 files (the usual Stan block structure) and `.laplacelib` library files (the
 relaxed dialect -- bare function definitions, an optional `functions { }`
 wrapper, an optional `library { }` block, and none of the model-shaped
-blocks). The language-server-backed features below are wired to `.laplace`
-only for now: laplace-lsp treats every document it is handed as a whole
-`.laplace` program, so pointing it at a functions-only `.laplacelib` file
-would make its `stanc` pass report a valid library as an invalid Stan
-program. `.laplacelib` files get the grammar, the icon and the language
-configuration; widening the server to them is separate, server-side work.
+blocks). Everything below works in both, and a package you import is
+resolved whichever dialect *it* was written in.
 
 Two pieces, built independently:
 
@@ -37,14 +33,20 @@ Two pieces, built independently:
   further.)
 - **Function-origin coloring** — a call site is colored differently depending
   on whether it's a Stan builtin (`normal_lpdf`, `gp_exp_quad_cov`, ...), a
-  `pkg::func()` library import, or a function defined in the current file's
-  `functions {}` block.
+  `pkg::func()` library import, or a function defined in the current file
+  (inside a `functions {}` block, or bare at top level as a `.laplacelib`
+  may write them).
 - **Autocomplete** — variables in scope, block/section keywords, and (typing
-  `pkg::`) every exported function of that resolved library.
+  `pkg::`) every exported function of that resolved library. A `.laplacelib`
+  is offered only the two blocks it may contain (`functions`, `library`),
+  never the model-shaped ones the compiler would reject.
 - **Live diagnostics** — an unresolved `pkg::func`, a missing/uninstalled
   library dependency, or a version pin that no longer matches `laplace.lock`
   is flagged inline, debounced (~350ms after the last edit, not per
-  keystroke) rather than only surfacing at `laplace build` time.
+  keystroke) rather than only surfacing at `laplace build` time. In a
+  `.laplacelib`, a `data`/`parameters`/`model`/... block — which the library
+  dialect forbids — is flagged too, every offending block at once rather
+  than only the first.
 - **Live Stan-level syntax/type checking** — missing semicolons, unknown
   types, incompatible operand types, and everything else real `stanc` would
   catch, also inline and debounced. Best-effort: this shells out to `stanc`
@@ -53,7 +55,11 @@ Two pieces, built independently:
   the checks above never depend on it. An error inside code spliced in from
   an imported package (rather than your own file) is attributed to that
   package's `import` statement, since it has no position in your file to
-  point at.
+  point at. A `.laplacelib` is not a Stan program on its own, so before
+  `stanc` sees one its definitions are gathered into a single `functions {}`
+  block — the same shape a consumer would splice it into — and the reported
+  positions are mapped back through that rewrite onto the file you're
+  editing.
 - **Hover + go-to-definition** on `pkg::func` (via the `docs`/`resolve`
   modules), as a low-marginal-cost bonus on top of the same symbol tables.
 - **Baseline TextMate grammar** as a fallback layer for the moment before the

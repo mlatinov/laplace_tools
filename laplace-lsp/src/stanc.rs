@@ -5,6 +5,14 @@
 //! `diagnostics`'s always-on import/lockfile checks -- if `stanc` can't be
 //! found, this module silently contributes no diagnostics rather than
 //! failing; nothing here is required for the LSP to work.
+//!
+//! A `.laplacelib` file is not a Stan program -- it is a bag of function
+//! definitions -- so handing one to `stanc` as-is would report every valid
+//! library as a syntax error. [`wrap_library_source`] first rewrites it into
+//! the equivalent `.laplace` text (its definitions gathered into a single
+//! `functions { }` block, which `stanc` accepts as a program on its own),
+//! and the offsets are mapped back through that rewrite as well as through
+//! `codegen`'s own `SourceMap`.
 
 use std::io::Write;
 use std::ops::Range;
@@ -14,12 +22,14 @@ use std::sync::OnceLock;
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Range as LspRange, Url};
 
-use laplace::codegen::{self, GeneratedStan, SourceMap};
+use laplace::codegen::{self, CodegenOptions, GeneratedStan, SourceMap};
+use laplace::parser::blocks::{find_top_level_blocks, BlockKind};
 use laplace::parser::library_block::{parse_library_block, LibraryBlock};
 use laplace::resolve::lockfile::Lockfile;
 use laplace::validate::{self, StancDiagnostic, StancSeverity};
 
 use crate::diagnostics::import_range;
+use crate::dialect::Dialect;
 use crate::position::{line_starts, offset_to_position};
 use crate::workspace::{default_cache_root, find_lockfile, load_installed_package};
 
@@ -37,12 +47,39 @@ pub fn compute_stanc_diagnostics_for_uri(uri: &Url, source: &str) -> Vec<Diagnos
         .unwrap_or_default();
     let cache_root = default_cache_root();
 
-    compute_stanc_diagnostics(stanc, source, &lock, &cache_root)
+    compute_stanc_diagnostics(stanc, source, Dialect::for_uri(uri), &lock, &cache_root)
 }
 
-fn compute_stanc_diagnostics(stanc: &Path, source: &str, lock: &Lockfile, cache_root: &Path) -> Vec<Diagnostic> {
-    let Ok(library_block) = parse_library_block(source) else {
+fn compute_stanc_diagnostics(
+    stanc: &Path,
+    source: &str,
+    dialect: Dialect,
+    lock: &Lockfile,
+    cache_root: &Path,
+) -> Vec<Diagnostic> {
+    // What codegen actually compiles. For a `.laplacelib` that is a rewritten
+    // copy of the file, so every offset coming back out has to be mapped
+    // through `wrapper` before it means anything in the user's buffer.
+    let wrapper = match dialect {
+        Dialect::Laplace => None,
+        Dialect::Library => match wrap_library_source(source) {
+            Some(w) => Some(w),
+            // A forbidden block, which diagnostics.rs already reports. There
+            // is no valid Stan program to build, so contribute nothing here
+            // rather than a cascade of confusing syntax errors.
+            None => return Vec::new(),
+        },
+    };
+    let compiled = wrapper.as_ref().map_or(source, |w| w.text.as_str());
+
+    let Ok(library_block) = parse_library_block(compiled) else {
         return Vec::new(); // diagnostics::compute_diagnostics already reports this
+    };
+    // The same block located in the *user's* file: its byte ranges are what
+    // `package_fallback` needs to point a diagnostic at an import statement.
+    let original_library_block = match parse_library_block(source) {
+        Ok(b) => b,
+        Err(_) => return Vec::new(),
     };
     let imports = library_block.as_ref().map(|b| b.imports.as_slice()).unwrap_or(&[]);
 
@@ -58,8 +95,12 @@ fn compute_stanc_diagnostics(stanc: &Path, source: &str, lock: &Lockfile, cache_
         installed.push(pkg);
     }
 
-    let Ok((generated, source_map)) = codegen::generate_with_source_map(source, library_block.as_ref(), &installed)
-    else {
+    let Ok((generated, source_map)) = codegen::generate_with_source_map(
+        compiled,
+        library_block.as_ref(),
+        &installed,
+        &CodegenOptions::inline(),
+    ) else {
         return Vec::new(); // codegen error; diagnostics.rs already flags it
     };
 
@@ -69,11 +110,124 @@ fn compute_stanc_diagnostics(stanc: &Path, source: &str, lock: &Lockfile, cache_
 
     let starts = line_starts(source);
     let gen_starts = line_starts(&generated.source);
+    let mapper = Mapper {
+        source_map: &source_map,
+        wrapper: wrapper.as_ref(),
+    };
 
     validate::parse_stanc_output(&raw)
         .into_iter()
-        .map(|d| to_lsp_diagnostic(source, &starts, &generated, &gen_starts, &source_map, library_block.as_ref(), d))
+        .map(|d| {
+            to_lsp_diagnostic(
+                source,
+                &starts,
+                &generated,
+                &gen_starts,
+                &mapper,
+                original_library_block.as_ref(),
+                d,
+            )
+        })
         .collect()
+}
+
+/// Byte offsets in the text handed to `stanc`, walked all the way back to
+/// byte offsets in the file the user is editing: through `codegen`'s
+/// `SourceMap` first, then (for a `.laplacelib`) through the wrapping
+/// rewrite. `None` at either step means the offset has no position in the
+/// user's file -- code spliced in from an imported package, or the
+/// boilerplate `functions { }` wrapper itself.
+struct Mapper<'a> {
+    source_map: &'a SourceMap,
+    wrapper: Option<&'a WrappedLibrary>,
+}
+
+impl Mapper<'_> {
+    fn map(&self, generated_offset: usize) -> Option<usize> {
+        let compiled_offset = self.source_map.map(generated_offset)?;
+        match self.wrapper {
+            None => Some(compiled_offset),
+            Some(w) => w.map(compiled_offset),
+        }
+    }
+}
+
+/// A `.laplacelib` file rewritten as the equivalent `.laplace` text, plus
+/// the offset mapping back.
+struct WrappedLibrary {
+    text: String,
+    /// `(range in `text`, the offset in the original source that range
+    /// starts at)`, in ascending order of the range. Every segment is a
+    /// verbatim copy, so the mapping within one is 1:1; text not covered by
+    /// any segment is boilerplate this module synthesized.
+    segments: Vec<(Range<usize>, usize)>,
+}
+
+impl WrappedLibrary {
+    fn map(&self, offset: usize) -> Option<usize> {
+        let idx = self.segments.partition_point(|(r, _)| r.end <= offset);
+        let (range, origin) = self.segments.get(idx)?;
+        (offset >= range.start).then(|| origin + (offset - range.start))
+    }
+}
+
+/// Rewrite a `.laplacelib` file into the `.laplace` text that means the same
+/// thing: its `library { }` blocks first, then every function definition it
+/// contains gathered into one `functions { }` block -- exactly the shape
+/// `laplace::parser::laplacelib::parse` produces for a consumer, and a
+/// program `stanc` will accept on its own.
+///
+/// Definitions are moved rather than copied in place, since a file may
+/// legally interleave them with its `library { }` block, and Stan allows
+/// only one `functions { }` block. `None` if the file contains a block the
+/// library dialect forbids -- there is no meaningful Stan program to build
+/// from it, and `diagnostics` reports that on its own.
+fn wrap_library_source(source: &str) -> Option<WrappedLibrary> {
+    let blocks = find_top_level_blocks(source);
+    if blocks
+        .iter()
+        .any(|b| !matches!(b.kind, BlockKind::Library | BlockKind::Functions))
+    {
+        return None;
+    }
+
+    let mut wrapped = WrappedLibrary {
+        text: String::with_capacity(source.len() + 16),
+        segments: Vec::new(),
+    };
+
+    for block in blocks.iter().filter(|b| b.kind == BlockKind::Library) {
+        wrapped.copy(source, block.byte_range.clone());
+        wrapped.text.push('\n');
+    }
+
+    wrapped.text.push_str("functions {\n");
+    let mut cursor = 0usize;
+    for block in &blocks {
+        wrapped.copy(source, cursor..block.byte_range.start);
+        // A `functions { }` wrapper is unwrapped (its contents are kept, its
+        // bookends dropped); a `library { }` block was already emitted above.
+        if block.kind == BlockKind::Functions {
+            wrapped.copy(source, block.body_range.clone());
+        }
+        cursor = block.byte_range.end;
+    }
+    wrapped.copy(source, cursor..source.len());
+    wrapped.text.push_str("\n}\n");
+
+    Some(wrapped)
+}
+
+impl WrappedLibrary {
+    /// Append `range` of `source` verbatim, recording where it came from.
+    fn copy(&mut self, source: &str, range: Range<usize>) {
+        if range.is_empty() {
+            return;
+        }
+        let start = self.text.len();
+        self.text.push_str(&source[range.clone()]);
+        self.segments.push((start..self.text.len(), range.start));
+    }
 }
 
 /// Runs `stanc` against `stan_source` over stdin, routing the C++ it would
@@ -116,7 +270,7 @@ fn to_lsp_diagnostic(
     starts: &[usize],
     generated: &GeneratedStan,
     gen_starts: &[usize],
-    source_map: &SourceMap,
+    mapper: &Mapper,
     library_block: Option<&LibraryBlock>,
     d: StancDiagnostic,
 ) -> Diagnostic {
@@ -127,7 +281,7 @@ fn to_lsp_diagnostic(
 
     let mapped = gen_starts.get(d.line.saturating_sub(1)).and_then(|&line_start| {
         let span_len = d.column_end.saturating_sub(d.column_start).max(1);
-        source_map
+        mapper
             .map(line_start + d.column_start)
             .map(|orig_start| orig_start..(orig_start + span_len).min(source.len()))
     });
@@ -251,7 +405,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let stanc = fake_stanc(tmp.path(), 0, "");
         let source = "data {\n  int N;\n}\nmodel {\n}\n";
-        let diags = compute_stanc_diagnostics(&stanc, source, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
         assert!(diags.is_empty());
     }
 
@@ -272,7 +426,7 @@ mod tests {
 Ill-formed expression.
 ";
         let stanc = fake_stanc(tmp.path(), 1, stanc_output);
-        let diags = compute_stanc_diagnostics(&stanc, source, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
 
         assert_eq!(diags.len(), 1);
         let d = &diags[0];
@@ -296,7 +450,7 @@ Ill-formed expression.
 Something deprecated.
 ";
         let stanc = fake_stanc(tmp.path(), 1, stanc_output);
-        let diags = compute_stanc_diagnostics(&stanc, source, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Some(DiagnosticSeverity::WARNING));
     }
@@ -317,11 +471,13 @@ Something deprecated.
         )
         .unwrap();
         let lock = Lockfile {
+            root: vec!["gps".to_string()],
             packages: vec![LockedPackage {
                 name: "gps".to_string(),
                 version: "1.0.0".to_string(),
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
+                dependencies: Vec::new(),
             }],
         };
 
@@ -332,7 +488,7 @@ Something deprecated.
         // fake `stanc` output can point at a real line inside it.
         let block = parse_library_block(source).unwrap();
         let installed = vec![load_installed_package(&pkg_dir, "gps").unwrap()];
-        let (generated, _) = codegen::generate_with_source_map(source, block.as_ref(), &installed).unwrap();
+        let (generated, _) = codegen::generate_with_source_map(source, block.as_ref(), &installed, &CodegenOptions::inline()).unwrap();
         let pkg_line = *generated.package_line_ranges[0].lines.start();
 
         let stanc_output = format!(
@@ -344,7 +500,7 @@ Something wrong in the package's own code.
 "
         );
         let stanc = fake_stanc(tmp.path(), 1, &stanc_output);
-        let diags = compute_stanc_diagnostics(&stanc, source, &lock, tmp.path());
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &lock, tmp.path());
 
         assert_eq!(diags.len(), 1);
         let d = &diags[0];
@@ -360,7 +516,92 @@ Something wrong in the package's own code.
         let tmp = tempfile::tempdir().unwrap();
         let stanc = fake_stanc(tmp.path(), 1, "should never run");
         let source = "library {\n  import gps\n}\nmodel {\n}\n";
-        let diags = compute_stanc_diagnostics(&stanc, source, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
         assert!(diags.is_empty());
+    }
+
+    // --- `.laplacelib` -----------------------------------------------------
+
+    #[test]
+    fn a_library_of_bare_definitions_is_wrapped_into_a_stan_program() {
+        let source = "library {\n  import gps\n}\n\nreal f(real x) {\n  return x;\n}\n";
+        let wrapped = wrap_library_source(source).unwrap();
+
+        // The import block survives (codegen still has to strip it and
+        // rename `gps::` calls), and the definition is now inside a
+        // `functions { }` block -- a program stanc will accept.
+        assert!(wrapped.text.contains("library {\n  import gps\n}"));
+        assert!(wrapped.text.contains("functions {"));
+        let body_at = wrapped.text.find("real f(real x)").unwrap();
+        assert!(wrapped.text[..body_at].contains("functions {"));
+        assert!(wrapped.text.trim_end().ends_with('}'));
+    }
+
+    #[test]
+    fn an_existing_functions_wrapper_is_unwrapped_rather_than_nested() {
+        let source = "functions {\n  real f(real x) {\n    return x;\n  }\n}\n";
+        let wrapped = wrap_library_source(source).unwrap();
+        assert_eq!(wrapped.text.matches("functions {").count(), 1);
+    }
+
+    #[test]
+    fn wrapping_maps_every_copied_byte_back_to_where_it_came_from() {
+        let source = "library {\n  import gps\n}\n\nreal f(real x) {\n  return x;\n}\n";
+        let wrapped = wrap_library_source(source).unwrap();
+
+        // Every segment is a verbatim copy, so a mapped offset must name the
+        // very same byte in the user's file.
+        for (range, _) in &wrapped.segments {
+            for offset in range.clone() {
+                let original = wrapped.map(offset).expect("a copied byte maps back");
+                assert_eq!(
+                    wrapped.text.as_bytes()[offset],
+                    source.as_bytes()[original],
+                    "offset {offset} mapped to {original}"
+                );
+            }
+        }
+
+        // ... and the synthesized wrapper text maps nowhere.
+        let functions_kw = wrapped.text.find("functions {").unwrap();
+        assert_eq!(wrapped.map(functions_kw), None);
+    }
+
+    #[test]
+    fn a_forbidden_block_produces_no_stanc_diagnostics() {
+        // `diagnostics::compute_diagnostics` reports the block itself; this
+        // pass must not pile a cascade of syntax errors on top of it.
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "model {\n  y ~ normal(0, 1);\n}\n";
+        assert!(wrap_library_source(source).is_none());
+
+        let stanc = fake_stanc(tmp.path(), 1, "should never run");
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn a_stanc_error_in_a_library_is_relocated_onto_the_original_source() {
+        let tmp = tempfile::tempdir().unwrap();
+        // No `functions { }` wrapper, so the compiled text is one line
+        // longer than the file: the error stanc reports on generated line 3
+        // is on line 2 of what the user is editing.
+        let source = "real f(real x) {\n  return x\n}\n";
+        let stanc_output = "Syntax error in 'model.stan', line 3, column 2 to column 3, parsing error:
+   -------------------------------------------------
+     3:    return x
+   -------------------------------------------------
+
+Ill-formed statement.
+";
+        let stanc = fake_stanc(tmp.path(), 1, stanc_output);
+        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Library, &Lockfile::default(), tmp.path());
+
+        assert_eq!(diags.len(), 1);
+        let d = &diags[0];
+        assert!(d.message.starts_with("Ill-formed statement."));
+        // Line 1 (0-indexed) of the original == `  return x`, not line 2.
+        assert_eq!(d.range.start.line, 1);
+        assert_eq!(d.range.start.character, 2);
     }
 }

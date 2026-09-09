@@ -15,6 +15,7 @@ use tower_lsp::{async_trait, Client, LanguageServer};
 
 use crate::analysis::{self, TOKEN_TYPES};
 use crate::completion;
+use crate::dialect::Dialect;
 use crate::diagnostics;
 use crate::position;
 use crate::stanc;
@@ -174,7 +175,10 @@ impl LanguageServer for Backend {
         }
 
         let analysis = analysis::analyze(&text);
-        Ok(Some(CompletionResponse::Array(completion::general_completions(&analysis))))
+        Ok(Some(CompletionResponse::Array(completion::general_completions(
+            &analysis,
+            Dialect::for_uri(&uri),
+        ))))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {

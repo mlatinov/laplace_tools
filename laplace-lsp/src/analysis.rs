@@ -359,6 +359,23 @@ pub struct Analysis {
     pub imports: Vec<ImportStatement>,
 }
 
+/// `source` with every top-level block (keyword, braces and body alike)
+/// replaced by spaces, leaving only the text between the blocks.
+///
+/// Byte offsets and therefore UTF-8 boundaries are preserved -- each block's
+/// range is replaced by exactly as many ASCII spaces -- so the result can be
+/// scanned with anything that would run on the original.
+fn blank_out_blocks(source: &str, blocks: &[Block]) -> String {
+    let mut out = source.to_string();
+    for block in blocks {
+        // The block's own keyword sits before its opening brace; back up to
+        // the start of the line so it can't be read as a function header.
+        let start = source[..block.open_brace].rfind('\n').map_or(0, |nl| nl + 1);
+        out.replace_range(start..=block.close_brace, &" ".repeat(block.close_brace + 1 - start));
+    }
+    out
+}
+
 pub fn analyze(source: &str) -> Analysis {
     let mask = CodeMask::new(source);
     let blocks = find_top_level_blocks(source, &mask);
@@ -377,7 +394,7 @@ pub fn analyze(source: &str) -> Analysis {
     // the `functions { }` block's *body*, not the whole file, since
     // otherwise the block's own opening brace is mistaken for a (headerless,
     // thus skipped) function and its contents are never looked at.
-    let user_functions = blocks
+    let mut user_functions: HashSet<String> = blocks
         .iter()
         .find(|b| b.kind == BlockKind::Functions)
         .map(|b| laplace::parser::signatures::extract_signatures(&source[b.open_brace + 1..b.close_brace]))
@@ -385,6 +402,17 @@ pub fn analyze(source: &str) -> Analysis {
         .into_iter()
         .map(|sig| sig.name)
         .collect();
+
+    // Plus any function defined bare at top level, outside every block --
+    // the shape a `.laplacelib` file is allowed to have (and the only shape
+    // it has when it skips the optional `functions { }` wrapper). Running
+    // the same scan over the text *between* the blocks costs nothing on a
+    // `.laplace` file, where that text is only whitespace and comments.
+    user_functions.extend(
+        laplace::parser::signatures::extract_signatures(&blank_out_blocks(source, &blocks))
+            .into_iter()
+            .map(|sig| sig.name),
+    );
 
     let library_calls = find_qualified_calls(source);
 
@@ -628,5 +656,38 @@ model {
         let mask = CodeMask::new(body);
         let names = scan_declarations(body, &mask, 0..body.len());
         assert_eq!(names, vec!["y_rep".to_string(), "z".to_string()]);
+    }
+
+    #[test]
+    fn bare_top_level_function_definitions_are_user_functions() {
+        // The `.laplacelib` shape: no `functions { }` wrapper at all.
+        let source = "library {\n  import gps\n}\n\nreal f(real x) {\n  return x;\n}\n\nvector g(vector x) {\n  return x;\n}\n";
+        let analysis = analyze(source);
+        assert!(analysis.user_functions.contains("f"));
+        assert!(analysis.user_functions.contains("g"));
+        // The import block is not a function definition.
+        assert!(!analysis.user_functions.contains("library"));
+    }
+
+    #[test]
+    fn bare_and_wrapped_definitions_are_both_found_in_one_file() {
+        let source = "functions {\n  real inner(real x) {\n    return x;\n  }\n}\n\nreal outer(real x) {\n  return inner(x);\n}\n";
+        let analysis = analyze(source);
+        assert!(analysis.user_functions.contains("inner"));
+        assert!(analysis.user_functions.contains("outer"));
+    }
+
+    #[test]
+    fn a_laplace_file_gains_no_spurious_user_functions_from_its_blocks() {
+        // Nothing outside the blocks of a project file is a definition --
+        // scanning that region must stay silent rather than mistaking a
+        // block keyword or a statement inside one for a function header.
+        let source = "data {\n  int N;\n}\nparameters {\n  real mu;\n}\nmodel {\n  for (n in 1:N) {\n    mu ~ normal(0, 1);\n  }\n}\n";
+        let analysis = analyze(source);
+        assert!(
+            analysis.user_functions.is_empty(),
+            "expected no user functions, got {:?}",
+            analysis.user_functions
+        );
     }
 }

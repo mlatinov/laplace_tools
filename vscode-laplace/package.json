@@ -20,7 +20,8 @@
     "language server"
   ],
   "activationEvents": [
-    "onLanguage:laplace"
+    "onLanguage:laplace",
+    "onLanguage:laplacelib"
   ],
   "main": "./out/extension.js",
   "contributes": {

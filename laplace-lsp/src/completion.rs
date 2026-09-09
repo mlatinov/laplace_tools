@@ -9,6 +9,7 @@ use laplace::docs::PackageDocs;
 use laplace::resolve::lockfile::Lockfile;
 
 use crate::analysis::Analysis;
+use crate::dialect::Dialect;
 
 pub const BLOCK_KEYWORDS: &[&str] = &[
     "data",
@@ -21,9 +22,14 @@ pub const BLOCK_KEYWORDS: &[&str] = &[
     "library",
 ];
 
+/// The blocks a `.laplacelib` file may contain. Offering it `model` or
+/// `parameters` would be suggesting the one edit the compiler is guaranteed
+/// to reject.
+pub const LIBRARY_BLOCK_KEYWORDS: &[&str] = &["functions", "library"];
+
 /// Variables in scope, user-defined functions, block/section keywords, and
 /// `pkg::` starters for every imported library.
-pub fn general_completions(analysis: &Analysis) -> Vec<CompletionItem> {
+pub fn general_completions(analysis: &Analysis, dialect: Dialect) -> Vec<CompletionItem> {
     let mut items = Vec::new();
 
     for name in analysis.symbol_roles.keys() {
@@ -43,7 +49,12 @@ pub fn general_completions(analysis: &Analysis) -> Vec<CompletionItem> {
         });
     }
 
-    for kw in BLOCK_KEYWORDS {
+    let keywords = if dialect.is_library() {
+        LIBRARY_BLOCK_KEYWORDS
+    } else {
+        BLOCK_KEYWORDS
+    };
+    for kw in keywords {
         items.push(CompletionItem {
             label: kw.to_string(),
             kind: Some(CompletionItemKind::KEYWORD),
@@ -103,4 +114,45 @@ pub fn package_completions(lock: &Lockfile, cache_root: &Path, package: &str) ->
             }
         })
         .collect()
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn labels(source: &str, dialect: Dialect) -> Vec<String> {
+        general_completions(&crate::analysis::analyze(source), dialect)
+            .into_iter()
+            .map(|item| item.label)
+            .collect()
+    }
+
+    #[test]
+    fn a_library_file_is_not_offered_the_blocks_it_may_not_contain() {
+        let items = labels("real f(real x) {\n  return x;\n}\n", Dialect::Library);
+        assert!(items.contains(&"functions".to_string()));
+        assert!(items.contains(&"library".to_string()));
+        for forbidden in ["data", "parameters", "model", "generated quantities"] {
+            assert!(!items.contains(&forbidden.to_string()), "offered `{forbidden}`");
+        }
+    }
+
+    #[test]
+    fn a_project_file_is_offered_every_block() {
+        let items = labels("model {\n}\n", Dialect::Laplace);
+        for kw in BLOCK_KEYWORDS {
+            assert!(items.contains(&kw.to_string()), "missing `{kw}`");
+        }
+    }
+
+    #[test]
+    fn a_librarys_own_functions_and_imports_are_completed() {
+        let items = labels(
+            "library {\n  import gps\n}\n\nreal f(real x) {\n  return x;\n}\n",
+            Dialect::Library,
+        );
+        assert!(items.contains(&"f".to_string()));
+        assert!(items.contains(&"gps::".to_string()));
+    }
 }

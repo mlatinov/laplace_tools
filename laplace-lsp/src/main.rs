@@ -2,6 +2,7 @@ mod analysis;
 mod backend;
 mod builtins;
 mod completion;
+mod dialect;
 mod diagnostics;
 mod position;
 mod stanc;
