@@ -1,0 +1,23 @@
+// A .laplacelib with bare top-level function definitions -- no `functions { }`
+// wrapper and no data/parameters/model blocks at all. The compiler accepts
+// this (src/parser/laplacelib.rs), so all of it must still highlight.
+library {
+  import linalg@1.0.0
+}
+
+// @brief Standardise a vector to mean 0, sd 1.
+// @param x the vector to standardise
+// @return the standardised vector
+// @example z_score([1.0, 2.0, 3.0]')
+vector z_score(vector x) {
+  real m = mean(x);
+  real s = sd(x);
+  if (s == 0) {
+    return rep_vector(0, num_elements(x));
+  }
+  return (x - m) / s;
+}
+
+real weighted_mean(vector x, vector w) {
+  return linalg::dot(x, w) / sum(w);
+}

@@ -18,6 +18,12 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const clientOptions: LanguageClientOptions = {
+    // `.laplace` only, deliberately. `.laplacelib` files get the grammar,
+    // icon and language configuration, but not the server: laplace-lsp
+    // treats every document it is given as a whole `.laplace` program, so
+    // its stanc pass would report a functions-only library file as an
+    // invalid Stan program. Widening this is its own task, on the server
+    // side, not a client-side selector change.
     documentSelector: [{ scheme: "file", language: "laplace" }],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher("**/laplace.{toml,lock}"),

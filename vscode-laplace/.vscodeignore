@@ -1,5 +1,7 @@
 .vscode/**
 src/**
+fixtures/**
 tsconfig.json
 .gitignore
 *.map
+*.vsix

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "laplacelib",
+  "scopeName": "source.laplacelib",
+  "fileTypes": [
+    "laplacelib"
+  ],
+  "comment": "The library dialect shares every pattern with `source.laplace` -- same expressions, `library { }` block, `pkg::func` calls, comments, literals and types. It differs only in what it does not require: a `.laplacelib` file may be bare function definitions with no `functions { }` wrapper and no model-shaped blocks at all. None of the shared patterns are scoped to an enclosing block, so nothing has to be relaxed here; the separate scope name exists so themes and future semantic-token work can target the two dialects independently.",
+  "patterns": [
+    {
+      "include": "source.laplace#common"
+    }
+  ],
+  "repository": {}
+}

@@ -2,27 +2,58 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "laplace",
   "scopeName": "source.laplace",
-  "fileTypes": ["laplace"],
+  "fileTypes": [
+    "laplace"
+  ],
   "patterns": [
-    { "include": "#comments" },
-    { "include": "#library-block" },
-    { "include": "#block-keywords" },
-    { "include": "#qualified-call" },
-    { "include": "#control-keywords" },
-    { "include": "#type-keywords" },
-    { "include": "#constants" },
-    { "include": "#strings" },
-    { "include": "#operators" },
-    { "include": "#function-call" }
+    {
+      "include": "#common"
+    }
   ],
   "repository": {
+    "common": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#library-block"
+        },
+        {
+          "include": "#block-keywords"
+        },
+        {
+          "include": "#qualified-call"
+        },
+        {
+          "include": "#control-keywords"
+        },
+        {
+          "include": "#type-keywords"
+        },
+        {
+          "include": "#constants"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#function-call"
+        }
+      ]
+    },
     "comments": {
       "patterns": [
         {
           "name": "comment.line.double-slash.laplace",
           "begin": "//\\s*@laplace\\b",
           "beginCaptures": {
-            "0": { "name": "storage.type.annotation.laplace" }
+            "0": {
+              "name": "storage.type.annotation.laplace"
+            }
           },
           "end": "$",
           "patterns": []
@@ -30,8 +61,12 @@
         {
           "match": "(//\\s*)(@(?:brief|param|return|example|math)\\b)",
           "captures": {
-            "1": { "name": "comment.line.double-slash.laplace" },
-            "2": { "name": "keyword.other.doctag.laplace" }
+            "1": {
+              "name": "comment.line.double-slash.laplace"
+            },
+            "2": {
+              "name": "keyword.other.doctag.laplace"
+            }
           }
         },
         {
@@ -45,17 +80,29 @@
         {
           "match": "\\b(library)\\b\\s*(\\{)",
           "captures": {
-            "1": { "name": "keyword.control.block.library.laplace" },
-            "2": { "name": "punctuation.section.block.begin.laplace" }
+            "1": {
+              "name": "keyword.control.block.library.laplace"
+            },
+            "2": {
+              "name": "punctuation.section.block.begin.laplace"
+            }
           }
         },
         {
           "match": "\\b(import)\\b\\s+([A-Za-z_][A-Za-z0-9_-]*)\\s*(?:(@)([A-Za-z0-9_.-]+))?",
           "captures": {
-            "1": { "name": "keyword.control.import.laplace" },
-            "2": { "name": "entity.name.namespace.laplace" },
-            "3": { "name": "punctuation.separator.version.laplace" },
-            "4": { "name": "constant.numeric.version.laplace" }
+            "1": {
+              "name": "keyword.control.import.laplace"
+            },
+            "2": {
+              "name": "entity.name.namespace.laplace"
+            },
+            "3": {
+              "name": "punctuation.separator.version.laplace"
+            },
+            "4": {
+              "name": "constant.numeric.version.laplace"
+            }
           }
         }
       ]
@@ -65,15 +112,23 @@
         {
           "match": "\\b(transformed)\\s+(data|parameters)\\b",
           "captures": {
-            "1": { "name": "keyword.control.block.laplace" },
-            "2": { "name": "keyword.control.block.laplace" }
+            "1": {
+              "name": "keyword.control.block.laplace"
+            },
+            "2": {
+              "name": "keyword.control.block.laplace"
+            }
           }
         },
         {
           "match": "\\b(generated)\\s+(quantities)\\b",
           "captures": {
-            "1": { "name": "keyword.control.block.laplace" },
-            "2": { "name": "keyword.control.block.laplace" }
+            "1": {
+              "name": "keyword.control.block.laplace"
+            },
+            "2": {
+              "name": "keyword.control.block.laplace"
+            }
           }
         },
         {
@@ -85,9 +140,15 @@
     "qualified-call": {
       "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(::)([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
       "captures": {
-        "1": { "name": "entity.name.namespace.laplace" },
-        "2": { "name": "punctuation.accessor.double-colon.laplace" },
-        "3": { "name": "support.function.laplace" }
+        "1": {
+          "name": "entity.name.namespace.laplace"
+        },
+        "2": {
+          "name": "punctuation.accessor.double-colon.laplace"
+        },
+        "3": {
+          "name": "support.function.laplace"
+        }
       }
     },
     "control-keywords": {
@@ -115,7 +176,10 @@
       "begin": "\"",
       "end": "\"",
       "patterns": [
-        { "name": "constant.character.escape.laplace", "match": "\\\\." }
+        {
+          "name": "constant.character.escape.laplace",
+          "match": "\\\\."
+        }
       ]
     },
     "operators": {
@@ -125,7 +189,9 @@
     "function-call": {
       "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
       "captures": {
-        "1": { "name": "entity.name.function.laplace" }
+        "1": {
+          "name": "entity.name.function.laplace"
+        }
       }
     }
   }

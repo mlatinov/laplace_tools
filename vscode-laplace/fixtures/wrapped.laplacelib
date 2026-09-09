@@ -1,0 +1,17 @@
+// The other shape the compiler permits: an optional `functions { }` wrapper
+// around the definitions, still with no model-shaped blocks.
+library {
+  import stats@0.4.0
+}
+
+functions {
+  // @brief Log-sum-exp of a vector, guarded against overflow.
+  real lse(vector x) {
+    real m = max(x);
+    return m + log(sum(exp(x - m)));
+  }
+
+  matrix scale_rows(matrix X, vector s) {
+    return diag_pre_multiply(s, X) * stats::correction();
+  }
+}

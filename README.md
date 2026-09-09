@@ -2,9 +2,20 @@
 
 Editor tooling for [`laplace`](../laplace) — a source-to-source preprocessor
 that compiles `.laplace` files to plain `.stan`. This repo adds a real
-language server plus a VS Code extension so `.laplace`/`.stan` files get
-proper block-role coloring, function-origin coloring, autocomplete, and live
-diagnostics instead of generic Stan syntax highlighting.
+language server plus a VS Code extension so `.laplace`/`.laplacelib`/`.stan`
+files get proper block-role coloring, function-origin coloring, autocomplete,
+and live diagnostics instead of generic Stan syntax highlighting.
+
+Both source dialects the compiler accepts are supported: `.laplace` project
+files (the usual Stan block structure) and `.laplacelib` library files (the
+relaxed dialect -- bare function definitions, an optional `functions { }`
+wrapper, an optional `library { }` block, and none of the model-shaped
+blocks). The language-server-backed features below are wired to `.laplace`
+only for now: laplace-lsp treats every document it is handed as a whole
+`.laplace` program, so pointing it at a functions-only `.laplacelib` file
+would make its `stanc` pass report a valid library as an invalid Stan
+program. `.laplacelib` files get the grammar, the icon and the language
+configuration; widening the server to them is separate, server-side work.
 
 Two pieces, built independently:
 
@@ -48,15 +59,24 @@ Two pieces, built independently:
 - **Baseline TextMate grammar** as a fallback layer for the moment before the
   language server attaches (or if it isn't installed at all): `library {}`,
   `@laplace` doc comments, `pkg::func()` namespacing, and Stan's own block
-  keywords.
-- **A `.laplace` file icon** — a purple `Λ` glyph (`vscode-laplace/icons/laplace-lambda.svg`,
+  keywords. `.laplace` and `.laplacelib` share one set of patterns -- the
+  `source.laplacelib` grammar is a thin wrapper that includes
+  `source.laplace#common`, so highlighting can't drift between the two -- but
+  they keep distinct scope names (`source.laplace` / `source.laplacelib`) and
+  distinct language ids so themes, per-language settings and future
+  semantic-token work can target them independently. Nothing in the shared
+  patterns is scoped to an enclosing block, so a `.laplacelib` file with bare
+  top-level function definitions and no `data`/`parameters`/`model` blocks
+  highlights in full.
+- **A `.laplace`/`.laplacelib` file icon** — a purple `Λ` glyph (`vscode-laplace/icons/laplace-lambda.svg`,
   `laplace-lambda-light.svg`), shown the same way `.R`/`.py`/`.jl` get theirs:
   an icon theme's file-extension mapping, the only slot VS Code/Positron
   actually renders to the left of the filename. There's no API for an
   extension to inject a single icon into whatever theme's already active, so
   `vscode-laplace/icons/seti/` vendors the built-in Seti icon theme
   (MIT-licensed, `ThirdPartyNotices.txt` alongside it) with just the
-  `.laplace` mapping added — every other file type renders exactly as
+  `.laplace`/`.laplacelib` mappings added (both point at the same icon
+  definition -- one asset, two extension keys) — every other file type renders exactly as
   built-in Seti already does. Pick it via *Preferences: File Icon Theme →
   Laplace*; if you use a different icon theme day-to-day (Material Icon
   Theme, vscode-icons, ...), picking "Laplace" means other file types fall

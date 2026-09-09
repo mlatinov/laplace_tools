@@ -1,0 +1,43 @@
+// Regression check: a .laplace project file. Highlighting here must be
+// completely unchanged by the shared-repository grammar refactor.
+library {
+  import regression@0.2.1
+  import priors
+}
+
+functions {
+  // @brief Centre a vector on its own mean.
+  // @param x the vector to centre
+  // @return x - mean(x)
+  vector centre(vector x) {
+    return x - mean(x);
+  }
+}
+
+data {
+  int<lower=0> N;
+  vector[N] y;
+  matrix[N, 3] X;
+}
+
+parameters {
+  vector[3] beta;
+  real<lower=0> sigma;
+}
+
+transformed parameters {
+  vector[N] mu = X * beta;
+}
+
+model {
+  beta ~ priors::weakly_informative(2.5);
+  sigma ~ exponential(1);
+  y ~ normal(regression::fitted(X, beta), sigma);
+}
+
+generated quantities {
+  vector[N] y_rep;
+  for (n in 1:N) {
+    y_rep[n] = normal_rng(mu[n], sigma);
+  }
+}

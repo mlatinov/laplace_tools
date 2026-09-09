@@ -1800,7 +1800,8 @@
     "crt": "_lock",
     "pem": "_lock",
     "ds_store": "_ignored",
-    "laplace": "_laplace_file"
+    "laplace": "_laplace_file",
+    "laplacelib": "_laplace_file"
   },
   "fileNames": {
     "mix": "_hex",
@@ -2227,7 +2228,8 @@
       "crt": "_lock_light",
       "pem": "_lock_light",
       "ds_store": "_ignored_light",
-      "laplace": "_laplace_file_light"
+      "laplace": "_laplace_file_light",
+      "laplacelib": "_laplace_file_light"
     },
     "languageIds": {
       "bat": "_windows_light",
