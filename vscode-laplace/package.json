@@ -2,7 +2,7 @@
   "name": "laplace-lang",
   "displayName": "Laplace Language Support",
   "description": "Syntax highlighting, semantic coloring, autocomplete, live diagnostics, and rendered @math doc formulas for .laplace and .laplacelib files (a source-to-source preprocessor for Stan). Works unmodified in Positron via Open VSX.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "MIT",
   "publisher": "laplace-lang",
   "engines": {
@@ -212,7 +212,7 @@
     "test:grammar": "vscode-tmgrammar-snap \"fixtures/**/*.laplace\" \"fixtures/**/*.laplacelib\"",
     "test:grammar:update": "vscode-tmgrammar-snap -u \"fixtures/**/*.laplace\" \"fixtures/**/*.laplacelib\"",
     "test": "npm run check && npm run test:unit && npm run test:grammar && npm run test:bundle",
-    "package": "npm run compile -- --production && npx --yes @vscode/vsce package --no-dependencies -o laplace-lang-0.2.0.vsix",
+    "package": "npm run compile -- --production && npx --yes @vscode/vsce package --no-dependencies",
     "test:bundle": "npm run compile && node scripts/check-bundle.js"
   },
   "dependencies": {

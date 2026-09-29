@@ -1,13 +1,13 @@
 {
   "use a template": {
-    "prefix": "use",
+    "prefix": ["@use", "use"],
     "description": "Expand a library template at top level (@use pkg::name(...);).",
     "body": [
       "@use ${1:pkg}::${2:name}(${0:args});"
     ]
   },
   "expand a macro": {
-    "prefix": "expand",
+    "prefix": ["@expand", "expand"],
     "description": "Expand a library statement macro inside a block (@expand pkg::name([...], ...);).",
     "body": [
       "@expand ${1:pkg}::${2:name}([${3:alpha, beta}], ${0:normal(0, 1)});"
