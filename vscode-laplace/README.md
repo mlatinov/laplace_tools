@@ -44,15 +44,31 @@ go-to-definition, no type checking.
 | Templates | `pub @template ncp($name: ident, $N: expr) { ... }` — used as `@use pkg::ncp(theta, K);` |
 | Statement macros | `pub @macro priors(each $p: ident, $dist: expr) : stmt in model { ... }` — used as `@expand pkg::priors([alpha, beta], normal(0, 1));` |
 
-Because the compiler is still the old one, `laplace-lsp` reports two things
-about patch-1 files that are artefacts of its age rather than real problems:
-a `@macro` header's `in model { ... }` clause looks like a forbidden `model`
-block in a `.laplacelib`, and the template or macro named by `@use` /
-`@expand` looks like a function the package does not export. Set
-`laplace.diagnostics.unsupportedSyntax` to `false` to hide those (and the
-`stanc` pass, which rejects the whole generated model) while rewriting a
-library. Unresolved imports, version conflicts and uninstalled packages are
-always reported.
+### Diagnostics while the compiler catches up
+
+Because the compiler is still the old one, patch-1 files draw diagnostics that
+are artefacts of its age rather than real problems. Set
+`laplace.diagnostics.unsupportedSyntax` to `false` (or run **Laplace: Toggle
+diagnostics from unsupported (patch-1) syntax**) to hide them.
+
+Only the diagnostics *caused by* patch-1 syntax are hidden. Each rule is
+anchored to the syntax that causes it, so turning this off does not turn off
+error checking:
+
+| Hidden | Only when | Still reported |
+|---|---|---|
+| "cannot contain a `model` block" | on a `@macro` header line | a real `model` block in a `.laplacelib` |
+| "`pkg::name` is not in `pkg`'s exports" | on a line with `@use` / `@expand` | a mistyped `pkg::func` anywhere else |
+| `stanc` diagnostics | from the first patch-1 line onward | a missing `;` **above** a template; any file with no patch-1 syntax at all |
+
+Unresolved imports, version conflicts and uninstalled packages are always
+reported.
+
+There is one limit no editor-side filter can lift: `stanc` stops at its first
+error, so when patch-1 syntax comes first in a file it never parses the rest,
+and ordinary Stan mistakes further down go unreported. That ends when the
+compiler learns the syntax. While diagnostics are hidden, a warning sits in the
+status bar as a reminder.
 
 ### Snippets
 
