@@ -101,6 +101,24 @@ This extension contributes the following settings:
 | `laplace.docs.renderMath` | `true`          | Render a doc comment's `//@math` section as a formula in hovers. Set to `false` to see the LaTeX source as written. |
 | `laplace.diagnostics.unsupportedSyntax` | `true` | Show the diagnostics that patch-1 syntax provokes from a compiler that does not accept it yet. Set to `false` while rewriting a library in the new syntax. Import and lockfile diagnostics are always shown. |
 
+## Commands
+
+Both of these are in the Command Palette (`Ctrl+Shift+P`) under **Laplace**, as
+a shortcut for the corresponding setting:
+
+| Command | Does |
+|---|---|
+| `Laplace: Toggle diagnostics from unsupported (patch-1) syntax` | flips `laplace.diagnostics.unsupportedSyntax` |
+| `Laplace: Toggle rendering of //@math doc formulas` | flips `laplace.docs.renderMath` |
+
+They write to the workspace when one is open, so hiding diagnostics while
+rewriting one library does not leak into your other projects.
+
+While patch-1 diagnostics are hidden, a warning appears in the status bar --
+suppressing them also suppresses the whole `stanc` pass, so it is worth being
+able to see at a glance that Stan-level checking is off. Click it to turn them
+back on.
+
 ## Known limitations
 
 This is an early release. Not yet supported:

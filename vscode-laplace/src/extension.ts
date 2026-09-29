@@ -14,6 +14,25 @@ import { clearCache, renderMath, Theme } from "./math";
 
 let client: LanguageClient | undefined;
 
+/// Settings a user flips often enough to want a command for, rather than a
+/// trip to the settings editor.
+const RENDER_MATH = "docs.renderMath";
+const UNSUPPORTED_SYNTAX = "diagnostics.unsupportedSyntax";
+
+/// Write a setting back where the user will expect to find it again: into the
+/// workspace when there is one, so a library being rewritten in patch-1
+/// syntax can hide its diagnostics without that leaking into every other
+/// project.
+async function toggle(key: string): Promise<boolean> {
+  const config = vscode.workspace.getConfiguration("laplace");
+  const next = !config.get<boolean>(key, true);
+  const target = vscode.workspace.workspaceFolders?.length
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+  await config.update(key, next, target);
+  return next;
+}
+
 /// Which foreground formulas should be rendered in. High-contrast light
 /// counts as light; everything else is treated as dark, which is the safer
 /// default for an unknown theme (VS Code's own default is dark).
@@ -29,9 +48,21 @@ function renderMathEnabled(): boolean {
 }
 
 function showUnsupportedSyntaxDiagnostics(): boolean {
-  return vscode.workspace
-    .getConfiguration("laplace")
-    .get<boolean>("diagnostics.unsupportedSyntax", true);
+  return vscode.workspace.getConfiguration("laplace").get<boolean>(UNSUPPORTED_SYNTAX, true);
+}
+
+/// A reminder in the status bar, shown only while patch-1 diagnostics are
+/// hidden. Suppressing them also suppresses every `stanc` diagnostic, so
+/// leaving it on by accident means editing with Stan-level checking off --
+/// worth one visible indicator, and clicking it puts them back.
+function createSuppressionIndicator(): vscode.StatusBarItem {
+  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  item.command = "laplace.toggleUnsupportedSyntaxDiagnostics";
+  item.text = "$(warning) Laplace: diagnostics hidden";
+  item.tooltip =
+    "Diagnostics from patch-1 syntax -- and everything from the stanc pass -- are hidden. Click to show them again.";
+  item.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+  return item;
 }
 
 /// Replace the ```` ```math ```` fences in one hover's contents with rendered
@@ -107,6 +138,36 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   });
 
+  const indicator = createSuppressionIndicator();
+  const refreshIndicator = () => {
+    if (showUnsupportedSyntaxDiagnostics()) {
+      indicator.hide();
+    } else {
+      indicator.show();
+    }
+  };
+  refreshIndicator();
+  context.subscriptions.push(indicator);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("laplace.toggleUnsupportedSyntaxDiagnostics", async () => {
+      const showing = await toggle(UNSUPPORTED_SYNTAX);
+      vscode.window.setStatusBarMessage(
+        showing
+          ? "Laplace: showing diagnostics from unsupported (patch-1) syntax"
+          : "Laplace: hiding diagnostics from unsupported (patch-1) syntax, and the stanc pass",
+        4000,
+      );
+    }),
+    vscode.commands.registerCommand("laplace.toggleRenderMath", async () => {
+      const on = await toggle(RENDER_MATH);
+      vscode.window.setStatusBarMessage(
+        on ? "Laplace: rendering //@math as formulas" : "Laplace: showing //@math as raw LaTeX",
+        4000,
+      );
+    }),
+  );
+
   // Formulas are cached per theme, so a switch already misses the cache and
   // re-renders in the new colour. This only stops the old theme's images
   // being kept alive for the rest of the session.
@@ -114,13 +175,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("laplace.docs.renderMath")) {
+      if (event.affectsConfiguration(`laplace.${RENDER_MATH}`)) {
         clearCache();
       }
       // Diagnostics are filtered as the server publishes them, so an already
       // published set has to be recomputed. Restarting is the only way to
       // make the server re-publish for every open document.
-      if (event.affectsConfiguration("laplace.diagnostics.unsupportedSyntax")) {
+      if (event.affectsConfiguration(`laplace.${UNSUPPORTED_SYNTAX}`)) {
+        refreshIndicator();
         void client?.restart();
       }
     }),
