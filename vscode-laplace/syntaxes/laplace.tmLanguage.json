@@ -17,6 +17,42 @@
           "include": "#comments"
         },
         {
+          "include": "#template-definition"
+        },
+        {
+          "include": "#macro-definition"
+        },
+        {
+          "include": "#use-directive"
+        },
+        {
+          "include": "#expand-directive"
+        },
+        {
+          "include": "#wait-type"
+        },
+        {
+          "include": "#functional-type"
+        },
+        {
+          "include": "#macro-target-blocks"
+        },
+        {
+          "include": "#macro-kind"
+        },
+        {
+          "include": "#macro-each"
+        },
+        {
+          "include": "#placeholder-declaration"
+        },
+        {
+          "include": "#placeholder"
+        },
+        {
+          "include": "#visibility"
+        },
+        {
           "include": "#library-block"
         },
         {
@@ -74,6 +110,173 @@
           "match": "//.*$"
         }
       ]
+    },
+    "template-definition": {
+      "comment": "The header of a `@template` definition. Only the header needs a pattern: the body is ordinary Stan, and every pattern that highlights it -- `#block-keywords` included -- already lives in `#common`, which both dialects include. So `parameters { }` and `model { }` inside a template body in a `.laplacelib` colour exactly as they do at the top level of a `.laplace` file, without this grammar tracking where it is.",
+      "match": "(@template)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "keyword.other.directive.template.laplace"
+        },
+        "2": {
+          "name": "entity.name.function.template.laplace"
+        }
+      }
+    },
+    "macro-definition": {
+      "match": "(@macro)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "keyword.other.directive.macro.laplace"
+        },
+        "2": {
+          "name": "entity.name.function.macro.laplace"
+        }
+      }
+    },
+    "use-directive": {
+      "comment": "`@use pkg::name(...);`. The `pkg::name` part is left to `#qualified-call`, so a template use colours identically to a namespaced function call, as it should.",
+      "name": "keyword.other.directive.use.laplace",
+      "match": "(?<![A-Za-z0-9_])@use\\b"
+    },
+    "expand-directive": {
+      "comment": "`@expand pkg::name([a, b], ...);`. As with `@use`, the `pkg::name` goes to `#qualified-call`; the list literal needs nothing, since brackets and identifiers are already plain everywhere else in this grammar.",
+      "name": "keyword.other.directive.expand.laplace",
+      "match": "(?<![A-Za-z0-9_])@expand\\b"
+    },
+    "wait-type": {
+      "comment": "`@wait(f)` in type position, optionally followed by one of the size accessors. Must precede `#function-call`, which would otherwise claim `wait` as a called function.",
+      "match": "(@wait)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\))(?:(\\.)(size|rows|cols)\\b)?",
+      "captures": {
+        "1": {
+          "name": "storage.type.wait.laplace"
+        },
+        "2": {
+          "name": "punctuation.definition.parameters.begin.laplace"
+        },
+        "3": {
+          "name": "variable.other.laplace"
+        },
+        "4": {
+          "name": "punctuation.definition.parameters.end.laplace"
+        },
+        "5": {
+          "name": "punctuation.accessor.laplace"
+        },
+        "6": {
+          "name": "variable.other.property.laplace"
+        }
+      }
+    },
+    "functional-type": {
+      "comment": "A functional parameter type, `func(real, vector) -> real`. The argument types are scoped inside this block; the return type after `->` falls back to `#type-keywords` in `#common`, so it colours exactly like any other Stan type.",
+      "name": "meta.type.function.laplace",
+      "begin": "\\b(func)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.type.function.laplace"
+        },
+        "2": {
+          "name": "punctuation.definition.parameters.begin.laplace"
+        }
+      },
+      "end": "(\\))\\s*(->)?",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.parameters.end.laplace"
+        },
+        "2": {
+          "name": "keyword.operator.arrow.laplace"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#functional-type"
+        },
+        {
+          "include": "#wait-type"
+        },
+        {
+          "include": "#type-keywords"
+        },
+        {
+          "include": "#constants"
+        },
+        {
+          "name": "punctuation.separator.parameter.laplace",
+          "match": ","
+        }
+      ]
+    },
+    "macro-target-blocks": {
+      "comment": "The `in <block>, <block>` clause of a macro header. Block names here are not followed by `{`, so `#block-keywords` cannot match them on its own. The `begin` demands a block name immediately after `in`, which is what keeps this off `for (n in 1:N) {` -- the one place `in` already appears in ordinary Stan code.",
+      "begin": "\\b(in)\\b(?=\\s*(?:transformed\\s+(?:data|parameters)|generated\\s+quantities|functions|data|parameters|model)\\b)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.laplace"
+        }
+      },
+      "end": "(?=\\{)|$",
+      "patterns": [
+        {
+          "name": "keyword.control.block.laplace",
+          "match": "\\b(?:transformed\\s+(?:data|parameters)|generated\\s+quantities|functions|data|parameters|model)\\b"
+        },
+        {
+          "name": "punctuation.separator.block.laplace",
+          "match": ","
+        }
+      ]
+    },
+    "macro-kind": {
+      "comment": "The `: stmt` after a macro's parameter list. `decl` and `expr` are reserved for future macro kinds. The lookahead keeps this off anything that is not a macro header.",
+      "match": "(:)\\s*(stmt|decl|expr)\\b(?=\\s*(?:in\\b|\\{))",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.type.laplace"
+        },
+        "2": {
+          "name": "storage.type.macro-kind.laplace"
+        }
+      }
+    },
+    "macro-each": {
+      "comment": "`each` is only a keyword directly before a placeholder parameter, so a variable that happens to be called `each` in ordinary Stan code is left alone.",
+      "name": "keyword.other.each.laplace",
+      "match": "\\b(each)\\b(?=\\s*\\$)"
+    },
+    "placeholder-declaration": {
+      "comment": "`$name: ident` in a template or macro header. Must precede `#placeholder`, which would otherwise take the `$name` and leave the kind unhighlighted. `type` is reserved for the future.",
+      "match": "(\\$[A-Za-z_][A-Za-z0-9_]*)\\s*(:)\\s*(ident|expr|type)\\b",
+      "captures": {
+        "1": {
+          "name": "variable.other.placeholder.laplace"
+        },
+        "2": {
+          "name": "punctuation.separator.type.laplace"
+        },
+        "3": {
+          "name": "storage.type.placeholder-kind.laplace"
+        }
+      }
+    },
+    "placeholder": {
+      "comment": "A placeholder substitution in a template or macro body. The braced form is one token so that in `${name}_raw` the `${name}` is placeholder-coloured and the `_raw` suffix stays an ordinary identifier.",
+      "patterns": [
+        {
+          "name": "variable.other.placeholder.laplace",
+          "match": "\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}"
+        },
+        {
+          "name": "variable.other.placeholder.laplace",
+          "match": "\\$[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "visibility": {
+      "comment": "`pub` before a function, template or macro in a `.laplacelib`. Shared rather than library-only: a `pub` in a `.laplace` file is a compiler error, not a highlighting one, and the LSP is what should say so.",
+      "name": "storage.modifier.pub.laplace",
+      "match": "\\b(pub)\\b"
     },
     "library-block": {
       "patterns": [
@@ -184,7 +387,7 @@
     },
     "operators": {
       "name": "keyword.operator.laplace",
-      "match": "(~|<-|\\+=|-=|\\*=|/=|\\.\\*=|\\./=|==|!=|<=|>=|&&|\\|\\||[+\\-*/%^<>=!])"
+      "match": "(~|<-|->|\\+=|-=|\\*=|/=|\\.\\*=|\\./=|==|!=|<=|>=|&&|\\|\\||[+\\-*/%^<>=!])"
     },
     "function-call": {
       "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",

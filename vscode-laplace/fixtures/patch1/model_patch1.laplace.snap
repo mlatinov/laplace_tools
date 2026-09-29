@@ -1,0 +1,213 @@
+>// The consuming side of patch 1: `@use` at top level, `@expand` inside a
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>// block, and calls into a library that takes functions as arguments.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>// Companion to `stats_patch1.laplacelib`.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>library {
+#^^^^^^^ source.laplace keyword.control.block.library.laplace
+#       ^ source.laplace
+#        ^ source.laplace punctuation.section.block.begin.laplace
+>  import stats
+#^^ source.laplace
+#  ^^^^^^ source.laplace keyword.control.import.laplace
+#        ^ source.laplace
+#         ^^^^^ source.laplace entity.name.namespace.laplace
+>  import linalg@1.0.0
+#^^ source.laplace
+#  ^^^^^^ source.laplace keyword.control.import.laplace
+#        ^ source.laplace
+#         ^^^^^^ source.laplace entity.name.namespace.laplace
+#               ^ source.laplace punctuation.separator.version.laplace
+#                ^^^^^ source.laplace constant.numeric.version.laplace
+>}
+#^^ source.laplace
+>
+>// --- 3. templates: `@use`, top level, outside any block -------------------
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>
+>@use stats::ncp(theta, K);
+#^^^^ source.laplace keyword.other.directive.use.laplace
+#    ^ source.laplace
+#     ^^^^^ source.laplace entity.name.namespace.laplace
+#          ^^ source.laplace punctuation.accessor.double-colon.laplace
+#            ^^^ source.laplace support.function.laplace
+#               ^^^^^^^^^^^^ source.laplace
+>@use stats::observation(y, mu + theta, sigma);
+#^^^^ source.laplace keyword.other.directive.use.laplace
+#    ^ source.laplace
+#     ^^^^^ source.laplace entity.name.namespace.laplace
+#          ^^ source.laplace punctuation.accessor.double-colon.laplace
+#            ^^^^^^^^^^^ source.laplace support.function.laplace
+#                       ^^^^^^^ source.laplace
+#                              ^ source.laplace keyword.operator.laplace
+#                               ^^^^^^^^^^^^^^^^ source.laplace
+>
+>data {
+#^^^^ source.laplace keyword.control.block.laplace
+#    ^^^ source.laplace
+>  int K;
+#^^ source.laplace
+#  ^^^ source.laplace storage.type.laplace
+#     ^^^^ source.laplace
+>  vector[K] y;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^^^^ source.laplace
+>  matrix[K, 3] X;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^ source.laplace
+#            ^ source.laplace constant.numeric.laplace
+#             ^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>parameters {
+#^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#          ^^^ source.laplace
+>  real<lower=0> sigma;
+#^^ source.laplace
+#  ^^^^ source.laplace storage.type.laplace
+#      ^ source.laplace keyword.operator.laplace
+#       ^^^^^ source.laplace
+#            ^ source.laplace keyword.operator.laplace
+#             ^ source.laplace constant.numeric.laplace
+#              ^ source.laplace keyword.operator.laplace
+#               ^^^^^^^^ source.laplace
+>  vector[3] alpha;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^ source.laplace
+#         ^ source.laplace constant.numeric.laplace
+#          ^^^^^^^^^ source.laplace
+>  real beta;
+#^^ source.laplace
+#  ^^^^ source.laplace storage.type.laplace
+#      ^^^^^^^ source.laplace
+>  real<lower=0> gamma;
+#^^ source.laplace
+#  ^^^^ source.laplace storage.type.laplace
+#      ^ source.laplace keyword.operator.laplace
+#       ^^^^^ source.laplace
+#            ^ source.laplace keyword.operator.laplace
+#             ^ source.laplace constant.numeric.laplace
+#              ^ source.laplace keyword.operator.laplace
+#               ^^^^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>transformed parameters {
+#^^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#           ^ source.laplace
+#            ^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#                      ^^^ source.laplace
+>  vector[K] mu = X * alpha;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^^^^ source.laplace
+#               ^ source.laplace keyword.operator.laplace
+#                ^^^ source.laplace
+#                   ^ source.laplace keyword.operator.laplace
+#                    ^^^^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>// --- 4. statement macros: `@expand` inside a block -----------------------
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>
+>model {
+#^^^^^ source.laplace keyword.control.block.laplace
+#     ^^^ source.laplace
+>  @expand stats::priors([alpha, beta, gamma], normal(0, 1));
+#^^ source.laplace
+#  ^^^^^^^ source.laplace keyword.other.directive.expand.laplace
+#         ^ source.laplace
+#          ^^^^^ source.laplace entity.name.namespace.laplace
+#               ^^ source.laplace punctuation.accessor.double-colon.laplace
+#                 ^^^^^^ source.laplace support.function.laplace
+#                       ^^^^^^^^^^^^^^^^^^^^^^^ source.laplace
+#                                              ^^^^^^ source.laplace entity.name.function.laplace
+#                                                    ^ source.laplace
+#                                                     ^ source.laplace constant.numeric.laplace
+#                                                      ^^ source.laplace
+#                                                        ^ source.laplace constant.numeric.laplace
+#                                                         ^^^^ source.laplace
+>  @expand stats::positives([sigma]);
+#^^ source.laplace
+#  ^^^^^^^ source.laplace keyword.other.directive.expand.laplace
+#         ^ source.laplace
+#          ^^^^^ source.laplace entity.name.namespace.laplace
+#               ^^ source.laplace punctuation.accessor.double-colon.laplace
+#                 ^^^^^^^^^ source.laplace support.function.laplace
+#                          ^^^^^^^^^^^ source.laplace
+>  y ~ normal(alpha[1] + beta * mu, gamma);
+#^^^^ source.laplace
+#    ^ source.laplace keyword.operator.laplace
+#     ^ source.laplace
+#      ^^^^^^ source.laplace entity.name.function.laplace
+#            ^^^^^^^ source.laplace
+#                   ^ source.laplace constant.numeric.laplace
+#                    ^^ source.laplace
+#                      ^ source.laplace keyword.operator.laplace
+#                       ^^^^^^ source.laplace
+#                             ^ source.laplace keyword.operator.laplace
+#                              ^^^^^^^^^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>// --- 2. calling a library function that takes a function ----------------
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>
+>generated quantities {
+#^^^^^^^^^ source.laplace keyword.control.block.laplace
+#         ^ source.laplace
+#          ^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#                    ^^^ source.laplace
+>  matrix[K, 2] paired = stats::expand_rows(y, stats::to_pair);
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^ source.laplace
+#            ^ source.laplace constant.numeric.laplace
+#             ^^^^^^^^^ source.laplace
+#                      ^ source.laplace keyword.operator.laplace
+#                       ^ source.laplace
+#                        ^^^^^ source.laplace entity.name.namespace.laplace
+#                             ^^ source.laplace punctuation.accessor.double-colon.laplace
+#                               ^^^^^^^^^^^ source.laplace support.function.laplace
+#                                          ^^^^^^^^^^^^^^^^^^^^^ source.laplace
+>  real doubled = stats::apply_twice(2.0, stats::mean);
+#^^ source.laplace
+#  ^^^^ source.laplace storage.type.laplace
+#      ^^^^^^^^^ source.laplace
+#               ^ source.laplace keyword.operator.laplace
+#                ^ source.laplace
+#                 ^^^^^ source.laplace entity.name.namespace.laplace
+#                      ^^ source.laplace punctuation.accessor.double-colon.laplace
+#                        ^^^^^^^^^^^ source.laplace support.function.laplace
+#                                   ^ source.laplace
+#                                    ^^^ source.laplace constant.numeric.laplace
+#                                       ^^^^^^^^^^^^^^^^ source.laplace
+>  vector[K] y_rep;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^^^^^^^^ source.laplace
+>  for (n in 1:K) {
+#^^ source.laplace
+#  ^^^ source.laplace keyword.control.laplace
+#     ^^^^ source.laplace
+#         ^^ source.laplace keyword.control.laplace
+#           ^ source.laplace
+#            ^ source.laplace constant.numeric.laplace
+#             ^^^^^^ source.laplace
+>    y_rep[n] = normal_rng(mu[n], sigma);
+#^^^^^^^^^^^^^ source.laplace
+#             ^ source.laplace keyword.operator.laplace
+#              ^ source.laplace
+#               ^^^^^^^^^^ source.laplace entity.name.function.laplace
+#                         ^^^^^^^^^^^^^^^^ source.laplace
+>  }
+#^^^^ source.laplace
+>}
+#^^ source.laplace
+>

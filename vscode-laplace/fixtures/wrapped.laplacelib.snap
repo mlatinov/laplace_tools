@@ -1,0 +1,92 @@
+>// The other shape the compiler permits: an optional `functions { }` wrapper
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>// around the definitions, still with no model-shaped blocks.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>library {
+#^^^^^^^ source.laplacelib keyword.control.block.library.laplace
+#       ^ source.laplacelib
+#        ^ source.laplacelib punctuation.section.block.begin.laplace
+>  import stats@0.4.0
+#^^ source.laplacelib
+#  ^^^^^^ source.laplacelib keyword.control.import.laplace
+#        ^ source.laplacelib
+#         ^^^^^ source.laplacelib entity.name.namespace.laplace
+#              ^ source.laplacelib punctuation.separator.version.laplace
+#               ^^^^^ source.laplacelib constant.numeric.version.laplace
+>}
+#^^ source.laplacelib
+>
+>functions {
+#^^^^^^^^^ source.laplacelib keyword.control.block.laplace
+#         ^^^ source.laplacelib
+>  // @brief Log-sum-exp of a vector, guarded against overflow.
+#^^ source.laplacelib
+#  ^^^ source.laplacelib comment.line.double-slash.laplace
+#     ^^^^^^ source.laplacelib keyword.other.doctag.laplace
+#           ^^^^ source.laplacelib
+#               ^ source.laplacelib keyword.operator.laplace
+#                ^^^ source.laplacelib
+#                   ^ source.laplacelib keyword.operator.laplace
+#                    ^^^^^^^^^ source.laplacelib
+#                             ^^^^^^ source.laplacelib storage.type.laplace
+#                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib
+>  real lse(vector x) {
+#^^ source.laplacelib
+#  ^^^^ source.laplacelib storage.type.laplace
+#      ^ source.laplacelib
+#       ^^^ source.laplacelib entity.name.function.laplace
+#          ^ source.laplacelib
+#           ^^^^^^ source.laplacelib storage.type.laplace
+#                 ^^^^^^ source.laplacelib
+>    real m = max(x);
+#^^^^ source.laplacelib
+#    ^^^^ source.laplacelib storage.type.laplace
+#        ^^^ source.laplacelib
+#           ^ source.laplacelib keyword.operator.laplace
+#            ^ source.laplacelib
+#             ^^^ source.laplacelib entity.name.function.laplace
+#                ^^^^^ source.laplacelib
+>    return m + log(sum(exp(x - m)));
+#^^^^ source.laplacelib
+#    ^^^^^^ source.laplacelib keyword.control.laplace
+#          ^^^ source.laplacelib
+#             ^ source.laplacelib keyword.operator.laplace
+#              ^ source.laplacelib
+#               ^^^ source.laplacelib entity.name.function.laplace
+#                  ^ source.laplacelib
+#                   ^^^ source.laplacelib entity.name.function.laplace
+#                      ^ source.laplacelib
+#                       ^^^ source.laplacelib entity.name.function.laplace
+#                          ^^^ source.laplacelib
+#                             ^ source.laplacelib keyword.operator.laplace
+#                              ^^^^^^^ source.laplacelib
+>  }
+#^^^^ source.laplacelib
+>
+>  matrix scale_rows(matrix X, vector s) {
+#^^ source.laplacelib
+#  ^^^^^^ source.laplacelib storage.type.laplace
+#        ^ source.laplacelib
+#         ^^^^^^^^^^ source.laplacelib entity.name.function.laplace
+#                   ^ source.laplacelib
+#                    ^^^^^^ source.laplacelib storage.type.laplace
+#                          ^^^^ source.laplacelib
+#                              ^^^^^^ source.laplacelib storage.type.laplace
+#                                    ^^^^^^ source.laplacelib
+>    return diag_pre_multiply(s, X) * stats::correction();
+#^^^^ source.laplacelib
+#    ^^^^^^ source.laplacelib keyword.control.laplace
+#          ^ source.laplacelib
+#           ^^^^^^^^^^^^^^^^^ source.laplacelib entity.name.function.laplace
+#                            ^^^^^^^ source.laplacelib
+#                                   ^ source.laplacelib keyword.operator.laplace
+#                                    ^ source.laplacelib
+#                                     ^^^^^ source.laplacelib entity.name.namespace.laplace
+#                                          ^^ source.laplacelib punctuation.accessor.double-colon.laplace
+#                                            ^^^^^^^^^^ source.laplacelib support.function.laplace
+#                                                      ^^^^ source.laplacelib
+>  }
+#^^^^ source.laplacelib
+>}
+#^^ source.laplacelib
+>
