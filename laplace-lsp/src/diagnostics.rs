@@ -14,7 +14,7 @@
 use std::ops::Range;
 use std::path::Path;
 
-use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Range as LspRange, Url};
+use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range as LspRange, Url};
 
 use laplace::codegen::{self, CodegenError};
 use laplace::parser::blocks::{find_top_level_blocks, BlockKind};
@@ -24,6 +24,36 @@ use laplace::resolve::lockfile::{self, Lockfile};
 use crate::dialect::Dialect;
 use crate::position::{line_starts, offset_to_position};
 use crate::workspace::{default_cache_root, find_lockfile, load_installed_package};
+
+/// Stable `Diagnostic::code` values, so a client can act on a diagnostic's
+/// *kind* without matching on its prose.
+///
+/// The extension uses these to implement
+/// `laplace.diagnostics.unsupportedSyntax`: writing a library in syntax the
+/// compiler does not accept yet provokes [`FORBIDDEN_BLOCK`] (from a
+/// `@macro` header's `in model { ... }`, whose `model {` looks like a
+/// top-level block) and [`UNKNOWN_EXPORT`] (from `@use pkg::name` /
+/// `@expand pkg::name`, since a template or macro is not a function export).
+/// Those two are suppressible; the import and lockfile codes are not,
+/// because they stay correct whatever the file's syntax looks like.
+pub mod code {
+    /// The `library { }` block itself would not parse.
+    pub const LIBRARY_BLOCK: &str = "library-block";
+    /// A model-shaped block in a `.laplacelib`.
+    pub const FORBIDDEN_BLOCK: &str = "forbidden-block";
+    /// An import with no matching entry in `laplace.lock`.
+    pub const UNRESOLVED_IMPORT: &str = "unresolved-import";
+    /// An `@version` pin that disagrees with `laplace.lock`.
+    pub const VERSION_MISMATCH: &str = "version-mismatch";
+    /// Locked, but absent from the package cache.
+    pub const NOT_INSTALLED: &str = "not-installed";
+    /// Present in the cache, but unreadable as a package.
+    pub const BAD_PACKAGE: &str = "bad-package";
+    /// A `pkg::name` the package does not export.
+    pub const UNKNOWN_EXPORT: &str = "unknown-export";
+    /// Any other `codegen` failure.
+    pub const CODEGEN: &str = "codegen";
+}
 
 pub fn compute_diagnostics_for_uri(uri: &Url, source: &str) -> Vec<Diagnostic> {
     let Ok(path) = uri.to_file_path() else {
@@ -54,7 +84,7 @@ pub fn compute_diagnostics(
     let library_block = match parse_library_block(source) {
         Ok(b) => b,
         Err(e) => {
-            diags.push(diagnostic(source, &starts, 0..0, e.to_string()));
+            diags.push(diagnostic(source, &starts, 0..0, code::LIBRARY_BLOCK, e.to_string()));
             return diags;
         }
     };
@@ -69,6 +99,11 @@ pub fn compute_diagnostics(
     // installed) -- suppress `codegen`'s redundant `MissingImport` for the
     // same package once we've already explained *why* it's missing.
     let mut unavailable = std::collections::HashSet::new();
+    // Imports whose `@version` pin disagrees with the lockfile, flagged just
+    // below. `codegen` reports the same disagreement as
+    // `ImportVersionMismatch`; ours names the command that fixes it, so it
+    // is the one to keep.
+    let mut version_mismatched = std::collections::HashSet::new();
 
     for import in imports {
         let range = import_range(source, library_block.as_ref().unwrap(), import);
@@ -78,6 +113,7 @@ pub fn compute_diagnostics(
                 source,
                 &starts,
                 range,
+                code::UNRESOLVED_IMPORT,
                 format!(
                     "`{}` is imported but not recorded in laplace.lock -- run `laplace add {}`",
                     import.name, import.name
@@ -93,11 +129,13 @@ pub fn compute_diagnostics(
                     source,
                     &starts,
                     range.clone(),
+                    code::VERSION_MISMATCH,
                     format!(
                         "`{}` is pinned to {pin} here, but laplace.lock has {} -- run `laplace update {}`",
                         import.name, locked.version, import.name
                     ),
                 ));
+                version_mismatched.insert(import.name.clone());
             }
         }
 
@@ -107,6 +145,7 @@ pub fn compute_diagnostics(
                 source,
                 &starts,
                 range,
+                code::NOT_INSTALLED,
                 format!(
                     "`{}@{}` is locked but not installed -- run `laplace install`",
                     locked.name, locked.version
@@ -119,17 +158,21 @@ pub fn compute_diagnostics(
         match load_installed_package(&package_dir, &locked.name) {
             Ok(pkg) => installed.push(pkg),
             Err(msg) => {
-                diags.push(diagnostic(source, &starts, range, msg));
+                diags.push(diagnostic(source, &starts, range, code::BAD_PACKAGE, msg));
                 unavailable.insert(import.name.clone());
             }
         }
     }
 
     if let Err(err) = codegen::generate(source, library_block.as_ref(), &installed) {
-        let already_reported = matches!(&err, CodegenError::MissingImport { package } if unavailable.contains(package));
+        let already_reported = match &err {
+            CodegenError::MissingImport { package } => unavailable.contains(package),
+            CodegenError::ImportVersionMismatch { package, .. } => version_mismatched.contains(package),
+            _ => false,
+        };
         if !already_reported {
             let range = codegen_error_range(source, library_block.as_ref(), &err);
-            diags.push(diagnostic(source, &starts, range, err.to_string()));
+            diags.push(diagnostic(source, &starts, range, codegen_error_code(&err), err.to_string()));
         }
     }
 
@@ -160,6 +203,7 @@ fn forbidden_block_diagnostics(source: &str, starts: &[usize]) -> Vec<Diagnostic
                 source,
                 starts,
                 b.byte_range.start..b.byte_range.start + keyword.len(),
+                code::FORBIDDEN_BLOCK,
                 format!(
                     "a `.laplacelib` file cannot contain a `{keyword}` block -- a library provides \
                      functions to a model, it is not a model itself (move this into the `.laplace` \
@@ -168,6 +212,18 @@ fn forbidden_block_diagnostics(source: &str, starts: &[usize]) -> Vec<Diagnostic
             )
         })
         .collect()
+}
+
+/// Which [`code`] a `codegen` failure reports under. Only the two
+/// "`pkg::name` is not exported" variants are separated out, because those
+/// are the ones a `@use` / `@expand` of a template or macro triggers today.
+fn codegen_error_code(err: &CodegenError) -> &'static str {
+    match err {
+        CodegenError::FunctionNotExported { .. } | CodegenError::UnknownPackageReference { .. } => {
+            code::UNKNOWN_EXPORT
+        }
+        _ => code::CODEGEN,
+    }
 }
 
 fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: &CodegenError) -> Range<usize> {
@@ -184,6 +240,10 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
     match err {
         CodegenError::MissingImport { package }
         | CodegenError::ExportedFunctionMissing { package, .. }
+        // A version the `library { }` block pins against a lockfile that
+        // pins something else is a disagreement about one import line, so
+        // that line is exactly where it belongs.
+        | CodegenError::ImportVersionMismatch { package, .. }
         // A dependency of an imported package, and a package reaching for
         // someone else's dependency, are both problems in a package's own
         // source: the nearest thing to them in *this* file is the import
@@ -193,7 +253,10 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
             import_of(in_package).unwrap_or(0..0)
         }
         CodegenError::FunctionNotExported { package, func }
-        | CodegenError::UnknownPackageReference { package, func } => calls
+        | CodegenError::UnknownPackageReference { package, func }
+        // Calling a density without `~` is a mistake at the call site, not
+        // in the import: point at the call the user has to rewrite.
+        | CodegenError::DensityCalledWithoutTilde { package, func, .. } => calls
             .iter()
             .find(|c| &c.package == package && &c.func == func)
             .map(|c| c.range.clone())
@@ -220,12 +283,19 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
     }
 }
 
-fn diagnostic(source: &str, starts: &[usize], range: Range<usize>, message: String) -> Diagnostic {
+fn diagnostic(
+    source: &str,
+    starts: &[usize],
+    range: Range<usize>,
+    code: &str,
+    message: String,
+) -> Diagnostic {
     let start = offset_to_position(source, starts, range.start.min(source.len()));
     let end = offset_to_position(source, starts, range.end.min(source.len()));
     Diagnostic {
         range: LspRange { start, end },
         severity: Some(DiagnosticSeverity::ERROR),
+        code: Some(NumberOrString::String(code.to_string())),
         source: Some("laplace".to_string()),
         message,
         ..Default::default()
@@ -394,5 +464,105 @@ mod tests {
         let diags = compute_diagnostics(source, Dialect::Library, &Lockfile::default(), tmp.path());
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("laplace add gps"));
+    }
+
+    fn codes(diags: &[Diagnostic]) -> Vec<String> {
+        diags
+            .iter()
+            .map(|d| match &d.code {
+                Some(NumberOrString::String(c)) => c.clone(),
+                other => panic!("expected a string code, got {other:?}"),
+            })
+            .collect()
+    }
+
+    /// Every diagnostic carries a code, so the client can filter on kind
+    /// rather than on message text.
+    #[test]
+    fn import_diagnostics_are_coded() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        let source = "library {\n  import gps\n}\nmodel {\n}\n";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &Lockfile::default(), tmp.path());
+        assert_eq!(codes(&diags), vec![code::UNRESOLVED_IMPORT]);
+
+        let lock = install_gps(tmp.path());
+        let pinned = "library {\n  import gps@2.0.0\n}\nmodel {\n}\n";
+        let diags = compute_diagnostics(pinned, Dialect::Laplace, &lock, tmp.path());
+        assert_eq!(codes(&diags), vec![code::VERSION_MISMATCH]);
+
+        let bad_call = "library {\n  import gps\n}\nmodel {\n  real y = gps::matern_cov(1.0);\n}\n";
+        let diags = compute_diagnostics(bad_call, Dialect::Laplace, &lock, tmp.path());
+        assert_eq!(codes(&diags), vec![code::UNKNOWN_EXPORT]);
+    }
+
+    /// Patch-1 syntax the compiler does not accept yet. These two tests pin
+    /// down exactly which diagnostics it provokes, which is what the
+    /// extension's `laplace.diagnostics.unsupportedSyntax` setting filters.
+    /// If a compiler update changes this set, these fail and the client's
+    /// filter list has to be revisited.
+    #[test]
+    fn a_macro_headers_in_clause_looks_like_a_forbidden_block() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_gps(tmp.path());
+        // `in model {` puts `model {` at brace depth 0, which
+        // `find_top_level_blocks` cannot tell from a real `model` block.
+        let source = "\
+pub @macro priors(each $p: ident, $dist: expr) : stmt in model {
+  $p ~ $dist;
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Library, &lock, tmp.path());
+        assert_eq!(codes(&diags), vec![code::FORBIDDEN_BLOCK]);
+    }
+
+    #[test]
+    fn a_use_of_a_template_looks_like_an_unexported_function() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_gps(tmp.path());
+        // A template is not a function export, so `gps::ncp` resolves to
+        // nothing -- the same diagnostic a genuine typo would get.
+        let source = "library {\n  import gps\n}\n\n@use gps::ncp(theta, K);\n\nmodel {\n}\n";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
+        assert_eq!(codes(&diags), vec![code::UNKNOWN_EXPORT]);
+    }
+
+    /// The rest of patch 1 is invisible to these checks: `codegen` splices
+    /// source, it never parses Stan statements, so there is no parse error
+    /// to suppress. Anything Stan-level would come from `stanc` instead,
+    /// under `source: "stanc"`.
+    #[test]
+    fn the_rest_of_patch_1_produces_no_diagnostics_at_all() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_gps(tmp.path());
+        let source = "\
+pub real mean_of(vector x) {
+  return sum(x) / num_elements(x);
+}
+
+pub matrix expand_rows(vector x, func(real) -> vector f) {
+  matrix[num_elements(x), @wait(f).size] out;
+  for (i in 1:num_elements(x)) {
+    @wait(f) row = f(x[i]);
+    out[i] = row';
+  }
+  return out;
+}
+
+vector[2] to_pair(real x) {
+  return [x, x * 2]';
+}
+
+pub @template ncp($name: ident, $N: expr) {
+  parameters {
+    vector[$N] ${name}_raw;
+  }
+  model {
+    ${name}_raw ~ std_normal();
+  }
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Library, &lock, tmp.path());
+        assert!(diags.is_empty(), "expected none, got {:?}", codes(&diags));
     }
 }

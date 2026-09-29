@@ -17,6 +17,7 @@ use crate::analysis::{self, TOKEN_TYPES};
 use crate::completion;
 use crate::dialect::Dialect;
 use crate::diagnostics;
+use crate::hover;
 use crate::position;
 use crate::stanc;
 use crate::workspace;
@@ -204,16 +205,13 @@ impl LanguageServer for Backend {
         let cache_root = workspace::default_cache_root();
 
         match laplace::docs::lookup(&lockfile_path, &cache_root, &call.package, &call.func) {
-            Ok(sig) => {
-                let rendered = laplace::docs::render(&call.package, &sig);
-                Ok(Some(Hover {
-                    contents: HoverContents::Markup(MarkupContent {
-                        kind: MarkupKind::Markdown,
-                        value: format!("```\n{rendered}```"),
-                    }),
-                    range: None,
-                }))
-            }
+            Ok(sigs) => Ok(Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: hover::markdown(&laplace::docs::render_overloads(&call.package, &sigs)),
+                }),
+                range: None,
+            })),
             Err(_) => Ok(None),
         }
     }

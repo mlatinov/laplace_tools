@@ -4,6 +4,7 @@ mod builtins;
 mod completion;
 mod dialect;
 mod diagnostics;
+mod hover;
 mod position;
 mod stanc;
 mod workspace;
