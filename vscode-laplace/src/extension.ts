@@ -8,7 +8,7 @@ import {
   TransportKind,
 } from "vscode-languageclient/node";
 
-import { filterDiagnostics } from "./diagnosticFilter";
+import { DocumentContext, filterDiagnostics, firstUnsupportedLine } from "./diagnosticFilter";
 import { hasMathFence, renderMathFences } from "./docs";
 import { clearCache, renderMath, Theme } from "./math";
 
@@ -51,16 +51,38 @@ function showUnsupportedSyntaxDiagnostics(): boolean {
   return vscode.workspace.getConfiguration("laplace").get<boolean>(UNSUPPORTED_SYNTAX, true);
 }
 
-/// A reminder in the status bar, shown only while patch-1 diagnostics are
-/// hidden. Suppressing them also suppresses every `stanc` diagnostic, so
-/// leaving it on by accident means editing with Stan-level checking off --
-/// worth one visible indicator, and clicking it puts them back.
+/// What the diagnostic filter needs about the document being reported on.
+///
+/// The document is open -- diagnostics are only published for open documents
+/// -- so this normally finds it. If it somehow cannot, every field comes back
+/// empty, which makes the filter suppress nothing: failing to find the text is
+/// not a reason to start hiding a user's errors.
+function documentContext(uri: vscode.Uri): DocumentContext {
+  const target = uri.toString();
+  const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === target);
+  if (!document) {
+    return { firstUnsupportedLine: undefined, lineAt: () => undefined };
+  }
+  return {
+    firstUnsupportedLine: firstUnsupportedLine(document.getText()),
+    lineAt: (line) => (line < document.lineCount ? document.lineAt(line).text : undefined),
+  };
+}
+
+/// A reminder in the status bar while patch-1 diagnostics are hidden.
+///
+/// The filter is narrow -- a missing `;` is still flagged, and so is a
+/// Stan-level error above the first patch-1 construct -- but `stanc` stops at
+/// its first error, so once a file opens with patch-1 syntax there is Stan
+/// checking the editor cannot give. Worth being able to see that state rather
+/// than forget about it.
 function createSuppressionIndicator(): vscode.StatusBarItem {
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   item.command = "laplace.toggleUnsupportedSyntaxDiagnostics";
-  item.text = "$(warning) Laplace: diagnostics hidden";
+  item.text = "$(warning) Laplace: patch-1 diagnostics hidden";
   item.tooltip =
-    "Diagnostics from patch-1 syntax -- and everything from the stanc pass -- are hidden. Click to show them again.";
+    "Diagnostics caused by patch-1 syntax are hidden. Real errors are still reported, " +
+    "including Stan-level ones above the first patch-1 construct. Click to show everything.";
   item.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
   return item;
 }
@@ -125,7 +147,7 @@ export function activate(context: vscode.ExtensionContext): void {
         diagnostics: vscode.Diagnostic[],
         next: HandleDiagnosticsSignature,
       ) => {
-        next(uri, filterDiagnostics(diagnostics, showUnsupportedSyntaxDiagnostics()));
+        next(uri, filterDiagnostics(diagnostics, showUnsupportedSyntaxDiagnostics(), documentContext(uri)));
       },
     },
   };
@@ -154,8 +176,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const showing = await toggle(UNSUPPORTED_SYNTAX);
       vscode.window.setStatusBarMessage(
         showing
-          ? "Laplace: showing diagnostics from unsupported (patch-1) syntax"
-          : "Laplace: hiding diagnostics from unsupported (patch-1) syntax, and the stanc pass",
+          ? "Laplace: showing diagnostics caused by patch-1 syntax"
+          : "Laplace: hiding diagnostics caused by patch-1 syntax -- real errors are still reported",
         4000,
       );
     }),
