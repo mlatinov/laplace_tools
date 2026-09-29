@@ -1,0 +1,194 @@
+>// Regression check: a .laplace project file. Highlighting here must be
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>// completely unchanged by the shared-repository grammar refactor.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
+>library {
+#^^^^^^^ source.laplace keyword.control.block.library.laplace
+#       ^ source.laplace
+#        ^ source.laplace punctuation.section.block.begin.laplace
+>  import regression@0.2.1
+#^^ source.laplace
+#  ^^^^^^ source.laplace keyword.control.import.laplace
+#        ^ source.laplace
+#         ^^^^^^^^^^ source.laplace entity.name.namespace.laplace
+#                   ^ source.laplace punctuation.separator.version.laplace
+#                    ^^^^^ source.laplace constant.numeric.version.laplace
+>  import priors
+#^^ source.laplace
+#  ^^^^^^ source.laplace keyword.control.import.laplace
+#        ^ source.laplace
+#         ^^^^^^ source.laplace entity.name.namespace.laplace
+>}
+#^^ source.laplace
+>
+>functions {
+#^^^^^^^^^ source.laplace keyword.control.block.laplace
+#         ^^^ source.laplace
+>  // @brief Centre a vector on its own mean.
+#^^ source.laplace
+#  ^^^ source.laplace comment.line.double-slash.laplace
+#     ^^^^^^ source.laplace keyword.other.doctag.laplace
+#           ^^^^^^^^^^ source.laplace
+#                     ^^^^^^ source.laplace storage.type.laplace
+#                           ^^^^^^^^^^^^^^^^^^ source.laplace
+>  // @param x the vector to centre
+#^^ source.laplace
+#  ^^^ source.laplace comment.line.double-slash.laplace
+#     ^^^^^^ source.laplace keyword.other.doctag.laplace
+#           ^^^^^^^ source.laplace
+#                  ^^^^^^ source.laplace storage.type.laplace
+#                        ^^^^^^^^^^^ source.laplace
+>  // @return x - mean(x)
+#^^ source.laplace
+#  ^^^ source.laplace comment.line.double-slash.laplace
+#     ^^^^^^^ source.laplace keyword.other.doctag.laplace
+#            ^^^ source.laplace
+#               ^ source.laplace keyword.operator.laplace
+#                ^ source.laplace
+#                 ^^^^ source.laplace entity.name.function.laplace
+#                     ^^^^ source.laplace
+>  vector centre(vector x) {
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^ source.laplace
+#         ^^^^^^ source.laplace entity.name.function.laplace
+#               ^ source.laplace
+#                ^^^^^^ source.laplace storage.type.laplace
+#                      ^^^^^^ source.laplace
+>    return x - mean(x);
+#^^^^ source.laplace
+#    ^^^^^^ source.laplace keyword.control.laplace
+#          ^^^ source.laplace
+#             ^ source.laplace keyword.operator.laplace
+#              ^ source.laplace
+#               ^^^^ source.laplace entity.name.function.laplace
+#                   ^^^^^ source.laplace
+>  }
+#^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>data {
+#^^^^ source.laplace keyword.control.block.laplace
+#    ^^^ source.laplace
+>  int<lower=0> N;
+#^^ source.laplace
+#  ^^^ source.laplace storage.type.laplace
+#     ^ source.laplace keyword.operator.laplace
+#      ^^^^^ source.laplace
+#           ^ source.laplace keyword.operator.laplace
+#            ^ source.laplace constant.numeric.laplace
+#             ^ source.laplace keyword.operator.laplace
+#              ^^^^ source.laplace
+>  vector[N] y;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^^^^ source.laplace
+>  matrix[N, 3] X;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^ source.laplace
+#            ^ source.laplace constant.numeric.laplace
+#             ^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>parameters {
+#^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#          ^^^ source.laplace
+>  vector[3] beta;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^ source.laplace
+#         ^ source.laplace constant.numeric.laplace
+#          ^^^^^^^^ source.laplace
+>  real<lower=0> sigma;
+#^^ source.laplace
+#  ^^^^ source.laplace storage.type.laplace
+#      ^ source.laplace keyword.operator.laplace
+#       ^^^^^ source.laplace
+#            ^ source.laplace keyword.operator.laplace
+#             ^ source.laplace constant.numeric.laplace
+#              ^ source.laplace keyword.operator.laplace
+#               ^^^^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>transformed parameters {
+#^^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#           ^ source.laplace
+#            ^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#                      ^^^ source.laplace
+>  vector[N] mu = X * beta;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^^^^ source.laplace
+#               ^ source.laplace keyword.operator.laplace
+#                ^^^ source.laplace
+#                   ^ source.laplace keyword.operator.laplace
+#                    ^^^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>model {
+#^^^^^ source.laplace keyword.control.block.laplace
+#     ^^^ source.laplace
+>  beta ~ priors::weakly_informative(2.5);
+#^^^^^^^ source.laplace
+#       ^ source.laplace keyword.operator.laplace
+#        ^ source.laplace
+#         ^^^^^^ source.laplace entity.name.namespace.laplace
+#               ^^ source.laplace punctuation.accessor.double-colon.laplace
+#                 ^^^^^^^^^^^^^^^^^^ source.laplace support.function.laplace
+#                                   ^ source.laplace
+#                                    ^^^ source.laplace constant.numeric.laplace
+#                                       ^^^ source.laplace
+>  sigma ~ exponential(1);
+#^^^^^^^^ source.laplace
+#        ^ source.laplace keyword.operator.laplace
+#         ^ source.laplace
+#          ^^^^^^^^^^^ source.laplace entity.name.function.laplace
+#                     ^ source.laplace
+#                      ^ source.laplace constant.numeric.laplace
+#                       ^^^ source.laplace
+>  y ~ normal(regression::fitted(X, beta), sigma);
+#^^^^ source.laplace
+#    ^ source.laplace keyword.operator.laplace
+#     ^ source.laplace
+#      ^^^^^^ source.laplace entity.name.function.laplace
+#            ^ source.laplace
+#             ^^^^^^^^^^ source.laplace entity.name.namespace.laplace
+#                       ^^ source.laplace punctuation.accessor.double-colon.laplace
+#                         ^^^^^^ source.laplace support.function.laplace
+#                               ^^^^^^^^^^^^^^^^^^^ source.laplace
+>}
+#^^ source.laplace
+>
+>generated quantities {
+#^^^^^^^^^ source.laplace keyword.control.block.laplace
+#         ^ source.laplace
+#          ^^^^^^^^^^ source.laplace keyword.control.block.laplace
+#                    ^^^ source.laplace
+>  vector[N] y_rep;
+#^^ source.laplace
+#  ^^^^^^ source.laplace storage.type.laplace
+#        ^^^^^^^^^^^ source.laplace
+>  for (n in 1:N) {
+#^^ source.laplace
+#  ^^^ source.laplace keyword.control.laplace
+#     ^^^^ source.laplace
+#         ^^ source.laplace keyword.control.laplace
+#           ^ source.laplace
+#            ^ source.laplace constant.numeric.laplace
+#             ^^^^^^ source.laplace
+>    y_rep[n] = normal_rng(mu[n], sigma);
+#^^^^^^^^^^^^^ source.laplace
+#             ^ source.laplace keyword.operator.laplace
+#              ^ source.laplace
+#               ^^^^^^^^^^ source.laplace entity.name.function.laplace
+#                         ^^^^^^^^^^^^^^^^ source.laplace
+>  }
+#^^^^ source.laplace
+>}
+#^^ source.laplace
+>

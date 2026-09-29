@@ -1,7 +1,11 @@
 .vscode/**
 src/**
 fixtures/**
+scripts/**
+node_modules/**
+out/test/**
+esbuild.js
 tsconfig.json
 .gitignore
-*.map
+**/*.map
 *.vsix

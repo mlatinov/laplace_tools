@@ -1,0 +1,43 @@
+{
+  "pub function": {
+    "prefix": "pubfn",
+    "description": "A public library function (exported from this .laplacelib).",
+    "body": [
+      "pub ${1:real} ${2:name}(${3:vector x}) {",
+      "  return ${0:x};",
+      "}"
+    ]
+  },
+  "function taking a function": {
+    "prefix": "hof",
+    "description": "A function with a func(...) -> ... parameter.",
+    "body": [
+      "pub ${1:vector} ${2:name}(vector ${3:x}, func(${4:real}) -> ${5:real} ${6:f}) {",
+      "  return ${0:${6:f}(${3:x}[1])};",
+      "}"
+    ]
+  },
+  "template": {
+    "prefix": "template",
+    "description": "A @template definition, with an ident and an expr placeholder.",
+    "body": [
+      "pub @template ${1:name}(\\$${2:param}: ident, \\$${3:N}: expr) {",
+      "  parameters {",
+      "    vector[\\$${3:N}] \\${${2:param}}_raw;",
+      "  }",
+      "  model {",
+      "    \\${${2:param}}_raw ~ ${0:std_normal()};",
+      "  }",
+      "}"
+    ]
+  },
+  "statement macro": {
+    "prefix": "macro",
+    "description": "A @macro statement macro, expanding once per item in model.",
+    "body": [
+      "pub @macro ${1:name}(each \\$${2:p}: ident, \\$${3:dist}: expr) : stmt in ${4:model} {",
+      "  \\$${2:p} ~ \\$${3:dist};",
+      "}"
+    ]
+  }
+}

@@ -1,0 +1,131 @@
+>// A .laplacelib with bare top-level function definitions -- no `functions { }`
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>// wrapper and no data/parameters/model blocks at all. The compiler accepts
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>// this (src/parser/laplacelib.rs), so all of it must still highlight.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>library {
+#^^^^^^^ source.laplacelib keyword.control.block.library.laplace
+#       ^ source.laplacelib
+#        ^ source.laplacelib punctuation.section.block.begin.laplace
+>  import linalg@1.0.0
+#^^ source.laplacelib
+#  ^^^^^^ source.laplacelib keyword.control.import.laplace
+#        ^ source.laplacelib
+#         ^^^^^^ source.laplacelib entity.name.namespace.laplace
+#               ^ source.laplacelib punctuation.separator.version.laplace
+#                ^^^^^ source.laplacelib constant.numeric.version.laplace
+>}
+#^^ source.laplacelib
+>
+>// @brief Standardise a vector to mean 0, sd 1.
+#^^^ source.laplacelib comment.line.double-slash.laplace
+#   ^^^^^^ source.laplacelib keyword.other.doctag.laplace
+#         ^^^^^^^^^^^^^^^ source.laplacelib
+#                        ^^^^^^ source.laplacelib storage.type.laplace
+#                              ^^^^^^^^^ source.laplacelib
+#                                       ^ source.laplacelib constant.numeric.laplace
+#                                        ^^^^^ source.laplacelib
+#                                             ^ source.laplacelib constant.numeric.laplace
+#                                              ^^ source.laplacelib
+>// @param x the vector to standardise
+#^^^ source.laplacelib comment.line.double-slash.laplace
+#   ^^^^^^ source.laplacelib keyword.other.doctag.laplace
+#         ^^^^^^^ source.laplacelib
+#                ^^^^^^ source.laplacelib storage.type.laplace
+#                      ^^^^^^^^^^^^^^^^ source.laplacelib
+>// @return the standardised vector
+#^^^ source.laplacelib comment.line.double-slash.laplace
+#   ^^^^^^^ source.laplacelib keyword.other.doctag.laplace
+#          ^^^^^^^^^^^^^^^^^^ source.laplacelib
+#                            ^^^^^^ source.laplacelib storage.type.laplace
+>// @example z_score([1.0, 2.0, 3.0]')
+#^^^ source.laplacelib comment.line.double-slash.laplace
+#   ^^^^^^^^ source.laplacelib keyword.other.doctag.laplace
+#           ^ source.laplacelib
+#            ^^^^^^^ source.laplacelib entity.name.function.laplace
+#                   ^^ source.laplacelib
+#                     ^^^ source.laplacelib constant.numeric.laplace
+#                        ^^ source.laplacelib
+#                          ^^^ source.laplacelib constant.numeric.laplace
+#                             ^^ source.laplacelib
+#                               ^^^ source.laplacelib constant.numeric.laplace
+#                                  ^^^^ source.laplacelib
+>vector z_score(vector x) {
+#^^^^^^ source.laplacelib storage.type.laplace
+#      ^ source.laplacelib
+#       ^^^^^^^ source.laplacelib entity.name.function.laplace
+#              ^ source.laplacelib
+#               ^^^^^^ source.laplacelib storage.type.laplace
+#                     ^^^^^^ source.laplacelib
+>  real m = mean(x);
+#^^ source.laplacelib
+#  ^^^^ source.laplacelib storage.type.laplace
+#      ^^^ source.laplacelib
+#         ^ source.laplacelib keyword.operator.laplace
+#          ^ source.laplacelib
+#           ^^^^ source.laplacelib entity.name.function.laplace
+#               ^^^^^ source.laplacelib
+>  real s = sd(x);
+#^^ source.laplacelib
+#  ^^^^ source.laplacelib storage.type.laplace
+#      ^^^ source.laplacelib
+#         ^ source.laplacelib keyword.operator.laplace
+#          ^ source.laplacelib
+#           ^^ source.laplacelib entity.name.function.laplace
+#             ^^^^^ source.laplacelib
+>  if (s == 0) {
+#^^ source.laplacelib
+#  ^^ source.laplacelib keyword.control.laplace
+#    ^^^^ source.laplacelib
+#        ^^ source.laplacelib keyword.operator.laplace
+#          ^ source.laplacelib
+#           ^ source.laplacelib constant.numeric.laplace
+#            ^^^^ source.laplacelib
+>    return rep_vector(0, num_elements(x));
+#^^^^ source.laplacelib
+#    ^^^^^^ source.laplacelib keyword.control.laplace
+#          ^ source.laplacelib
+#           ^^^^^^^^^^ source.laplacelib entity.name.function.laplace
+#                     ^ source.laplacelib
+#                      ^ source.laplacelib constant.numeric.laplace
+#                       ^^ source.laplacelib
+#                         ^^^^^^^^^^^^ source.laplacelib entity.name.function.laplace
+#                                     ^^^^^^ source.laplacelib
+>  }
+#^^^^ source.laplacelib
+>  return (x - m) / s;
+#^^ source.laplacelib
+#  ^^^^^^ source.laplacelib keyword.control.laplace
+#        ^^^^ source.laplacelib
+#            ^ source.laplacelib keyword.operator.laplace
+#             ^^^^ source.laplacelib
+#                 ^ source.laplacelib keyword.operator.laplace
+#                  ^^^^ source.laplacelib
+>}
+#^^ source.laplacelib
+>
+>real weighted_mean(vector x, vector w) {
+#^^^^ source.laplacelib storage.type.laplace
+#    ^ source.laplacelib
+#     ^^^^^^^^^^^^^ source.laplacelib entity.name.function.laplace
+#                  ^ source.laplacelib
+#                   ^^^^^^ source.laplacelib storage.type.laplace
+#                         ^^^^ source.laplacelib
+#                             ^^^^^^ source.laplacelib storage.type.laplace
+#                                   ^^^^^^ source.laplacelib
+>  return linalg::dot(x, w) / sum(w);
+#^^ source.laplacelib
+#  ^^^^^^ source.laplacelib keyword.control.laplace
+#        ^ source.laplacelib
+#         ^^^^^^ source.laplacelib entity.name.namespace.laplace
+#               ^^ source.laplacelib punctuation.accessor.double-colon.laplace
+#                 ^^^ source.laplacelib support.function.laplace
+#                    ^^^^^^^ source.laplacelib
+#                           ^ source.laplacelib keyword.operator.laplace
+#                            ^ source.laplacelib
+#                             ^^^ source.laplacelib entity.name.function.laplace
+#                                ^^^^^ source.laplacelib
+>}
+#^^ source.laplacelib
+>

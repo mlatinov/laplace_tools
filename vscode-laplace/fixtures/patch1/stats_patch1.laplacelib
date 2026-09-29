@@ -1,0 +1,133 @@
+// Every patch-1 construct that can appear in a `.laplacelib`, as a
+// highlighting fixture. The compiler does not accept any of this yet -- the
+// point is that the editor colours it correctly while libraries are being
+// rewritten. Kept in sync with `model_patch1.laplace`, which consumes it.
+library {
+  import linalg@1.0.0
+}
+
+// --- 1. visibility: `pub` ------------------------------------------------
+
+pub real mean(vector x) {
+  return sum_values(x) / num_elements(x);
+}
+
+real sum_values(vector x) {
+  return sum(x);
+}
+
+// --- 2. functions as arguments -------------------------------------------
+
+real apply_twice(real x, func(real) -> real f) {
+  real a = f(x);
+  return f(a);
+}
+
+pub matrix expand_rows(vector x, func(real) -> vector f) {
+  matrix[num_elements(x), @wait(f).size] out;
+  for (i in 1:num_elements(x)) {
+    @wait(f) row = f(x[i]);
+    out[i] = row';
+  }
+  return out;
+}
+
+// Several argument types, and the other two size accessors.
+pub matrix combine(matrix A, func(real, vector) -> matrix g) {
+  matrix[@wait(g).rows, @wait(g).cols] out;
+  return out;
+}
+
+// A functional type nested inside a functional type.
+real compose(real x, func(func(real) -> real) -> real h) {
+  return h(x);
+}
+
+// Sized return types (Laplace-only, stripped by the compiler). The function
+// name must still read as a function definition.
+vector[2] to_pair(real x) {
+  return [x, x * 2]';
+}
+
+vector[K] basis(real t, int K) {
+  return rep_vector(t, K);
+}
+
+matrix[N, N] gram(vector x, int N) {
+  return rep_matrix(0, N, N);
+}
+
+// --- 3. templates: `@template` -------------------------------------------
+
+pub @template ncp($name: ident, $N: expr) {
+  parameters {
+    vector[$N] ${name}_raw;
+    real<lower=0> ${name}_sigma;
+  }
+  transformed parameters {
+    vector[$N] $name = ${name}_sigma * ${name}_raw;
+  }
+  model {
+    ${name}_raw ~ std_normal();
+    ${name}_sigma ~ exponential(1);
+  }
+}
+
+pub @template observation($y: ident, $mu: expr, $sigma: expr) {
+  model {
+    $y ~ lognormal($mu, $sigma);
+  }
+  generated quantities {
+    real ${y}_rep = lognormal_rng($mu, $sigma);
+  }
+}
+
+// The remaining program blocks, so a template body covers all six.
+@template extras($x: ident, $M: expr) {
+  data {
+    int<lower=0> ${x}_N;
+  }
+  transformed data {
+    real ${x}_scale = sqrt($M);
+  }
+}
+
+// --- 4. statement macros: `@macro` ---------------------------------------
+
+pub @macro priors(each $p: ident, $dist: expr) : stmt in model {
+  $p ~ $dist;
+}
+
+pub @macro positives(each $p: ident) : stmt in transformed parameters, generated quantities {
+  real ${p}_exp = exp($p);
+}
+
+// `in` with a two-word block name first in the list.
+@macro centred(each $p: ident, $mu: expr) : stmt in transformed data, model {
+  real ${p}_c = $p - $mu;
+}
+
+// --- regression: `in` in a `for` loop is not a block list ----------------
+
+real total(vector x, int N) {
+  real acc = 0;
+  for (n in 1:N) {
+    acc += x[n];
+  }
+  return acc;
+}
+
+// --- a `//@math` doc block, for the hover formula rendering --------------
+
+//@laplace
+//@brief Churn Cure Log-Logistics Log pointwise Density function
+//@param vector t   : Time since origin t > 0.
+//@param real alpha : Scale parameter (alpha > 0).
+//@return real      : Total log likelihood of the mixture cure model.
+//@math
+// \pi_n = \operatorname{logit}^{-1}(\psi_n) \\
+// \log h(t_n) = \log\beta - \log\alpha_n + (\beta - 1)\left(\log t_n - \log\alpha_n\right) - \operatorname{log1p}\left((t_n/\alpha_n)^{\beta}\right), \quad H(t_n) = \operatorname{log1p}\left((t_n/\alpha_n)^{\beta}\right) \\
+// \log L = \sum_{n=1}^{N} \left\{ d_n\left[\log(1-\pi_n) + \log h(t_n) - H(t_n)\right] + (1-d_n)\log\left(\pi_n + (1-\pi_n)\,e^{-H(t_n)}\right) \right\}
+pub real churn_cure_log_logistics_lpdf(vector t, real alpha, real beta, vector psi, data vector d) {
+  return sum(psi);
+}

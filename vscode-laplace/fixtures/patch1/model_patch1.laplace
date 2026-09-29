@@ -1,0 +1,48 @@
+// The consuming side of patch 1: `@use` at top level, `@expand` inside a
+// block, and calls into a library that takes functions as arguments.
+// Companion to `stats_patch1.laplacelib`.
+library {
+  import stats
+  import linalg@1.0.0
+}
+
+// --- 3. templates: `@use`, top level, outside any block -------------------
+
+@use stats::ncp(theta, K);
+@use stats::observation(y, mu + theta, sigma);
+
+data {
+  int K;
+  vector[K] y;
+  matrix[K, 3] X;
+}
+
+parameters {
+  real<lower=0> sigma;
+  vector[3] alpha;
+  real beta;
+  real<lower=0> gamma;
+}
+
+transformed parameters {
+  vector[K] mu = X * alpha;
+}
+
+// --- 4. statement macros: `@expand` inside a block -----------------------
+
+model {
+  @expand stats::priors([alpha, beta, gamma], normal(0, 1));
+  @expand stats::positives([sigma]);
+  y ~ normal(alpha[1] + beta * mu, gamma);
+}
+
+// --- 2. calling a library function that takes a function ----------------
+
+generated quantities {
+  matrix[K, 2] paired = stats::expand_rows(y, stats::to_pair);
+  real doubled = stats::apply_twice(2.0, stats::mean);
+  vector[K] y_rep;
+  for (n in 1:K) {
+    y_rep[n] = normal_rng(mu[n], sigma);
+  }
+}
