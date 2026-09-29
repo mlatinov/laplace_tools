@@ -18,7 +18,7 @@
     ]
   },
   "template": {
-    "prefix": "template",
+    "prefix": ["@template", "template"],
     "description": "A @template definition, with an ident and an expr placeholder.",
     "body": [
       "pub @template ${1:name}(\\$${2:param}: ident, \\$${3:N}: expr) {",
@@ -32,7 +32,7 @@
     ]
   },
   "statement macro": {
-    "prefix": "macro",
+    "prefix": ["@macro", "macro"],
     "description": "A @macro statement macro, expanding once per item in model.",
     "body": [
       "pub @macro ${1:name}(each \\$${2:p}: ident, \\$${3:dist}: expr) : stmt in ${4:model} {",
