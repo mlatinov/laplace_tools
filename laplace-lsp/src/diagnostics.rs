@@ -16,8 +16,14 @@ use std::path::Path;
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range as LspRange, Url};
 
-use laplace::codegen::{self, CodegenError};
+use laplace::codegen::{self, CodegenError, CodegenOptions};
+use laplace::expand::blocks::BlockExpandError;
+use laplace::expand::macros::MacroExpandError;
 use laplace::parser::blocks::{find_top_level_blocks, BlockKind};
+use laplace::parser::identifiers::check_identifiers;
+use laplace::parser::laplacelib::{self, LaplaceLibError};
+use laplace::parser::macros::find_macros;
+use laplace::parser::template::find_templates;
 use laplace::parser::library_block::{parse_library_block, ImportStatement, LibraryBlock};
 use laplace::resolve::lockfile::{self, Lockfile};
 
@@ -27,15 +33,6 @@ use crate::workspace::{default_cache_root, find_lockfile, load_installed_package
 
 /// Stable `Diagnostic::code` values, so a client can act on a diagnostic's
 /// *kind* without matching on its prose.
-///
-/// The extension uses these to implement
-/// `laplace.diagnostics.unsupportedSyntax`: writing a library in syntax the
-/// compiler does not accept yet provokes [`FORBIDDEN_BLOCK`] (from a
-/// `@macro` header's `in model { ... }`, whose `model {` looks like a
-/// top-level block) and [`UNKNOWN_EXPORT`] (from `@use pkg::name` /
-/// `@expand pkg::name`, since a template or macro is not a function export).
-/// Those two are suppressible; the import and lockfile codes are not,
-/// because they stay correct whatever the file's syntax looks like.
 pub mod code {
     /// The `library { }` block itself would not parse.
     pub const LIBRARY_BLOCK: &str = "library-block";
@@ -49,11 +46,31 @@ pub mod code {
     pub const NOT_INSTALLED: &str = "not-installed";
     /// Present in the cache, but unreadable as a package.
     pub const BAD_PACKAGE: &str = "bad-package";
-    /// A `pkg::name` the package does not export.
+    /// A `pkg::name` the package does not define: a function, or the
+    /// template or macro an `@use` / `@expand` names.
     pub const UNKNOWN_EXPORT: &str = "unknown-export";
+    /// A `pkg::name` the package defines but did not mark `pub`.
+    pub const PRIVATE_ITEM: &str = "private-item";
+    /// A hand-written identifier containing `__`, which laplace reserves
+    /// for the names it generates.
+    pub const RESERVED_IDENTIFIER: &str = "reserved-identifier";
+    /// A `.laplacelib` definition the compiler rejects: a misplaced `pub`,
+    /// or a malformed `@template` / `@macro`.
+    pub const LIBRARY_ITEM: &str = "library-item";
+    /// An `@use` / `@expand` that names a real template or macro but
+    /// cannot be expanded: wrong arguments, wrong block, a name collision.
+    pub const EXPANSION: &str = "expansion";
+    /// A higher-order function (`func(...) -> ...` parameter, `@wait`)
+    /// that cannot be specialized.
+    pub const HIGHER_ORDER: &str = "higher-order";
     /// Any other `codegen` failure.
     pub const CODEGEN: &str = "codegen";
 }
+
+/// The name this file goes by in the compiler's messages. A message that
+/// points `--> <source>:line:column` is pointing into the file being
+/// edited, as opposed to into an installed package.
+pub(crate) const SOURCE_NAME: &str = "<source>";
 
 pub fn compute_diagnostics_for_uri(uri: &Url, source: &str) -> Vec<Diagnostic> {
     let Ok(path) = uri.to_file_path() else {
@@ -77,8 +94,23 @@ pub fn compute_diagnostics(
     let starts = line_starts(source);
     let mut diags = Vec::new();
 
+    // `__` is checked first by both the pipeline and `laplacelib::parse`,
+    // and the library check below would only repeat it.
+    let identifiers_ok = match check_identifiers(source) {
+        Ok(()) => true,
+        Err(err) => {
+            let range = err.offset..err.offset + err.identifier.len();
+            let message = format!("{err}\n  help: {}", err.help());
+            diags.push(diagnostic(source, &starts, range, code::RESERVED_IDENTIFIER, message));
+            false
+        }
+    };
+
     if dialect.is_library() {
         diags.extend(forbidden_block_diagnostics(source, &starts));
+        if identifiers_ok {
+            diags.extend(library_item_diagnostic(source, &starts));
+        }
     }
 
     let library_block = match parse_library_block(source) {
@@ -164,7 +196,8 @@ pub fn compute_diagnostics(
         }
     }
 
-    if let Err(err) = codegen::generate(source, library_block.as_ref(), &installed) {
+    let options = CodegenOptions::inline().named(SOURCE_NAME);
+    if let Err(err) = codegen::generate_with_options(source, library_block.as_ref(), &installed, &options) {
         let already_reported = match &err {
             CodegenError::MissingImport { package } => unavailable.contains(package),
             CodegenError::ImportVersionMismatch { package, .. } => version_mismatched.contains(package),
@@ -172,7 +205,8 @@ pub fn compute_diagnostics(
         };
         if !already_reported {
             let range = codegen_error_range(source, library_block.as_ref(), &err);
-            diags.push(diagnostic(source, &starts, range, codegen_error_code(&err), err.to_string()));
+            let message = without_own_location(&err.to_string());
+            diags.push(diagnostic(source, &starts, range, codegen_error_code(&err), message));
         }
     }
 
@@ -193,10 +227,31 @@ pub(crate) fn import_range(source: &str, block: &LibraryBlock, import: &ImportSt
 /// per offending block rather than stopping at the first one, since an
 /// editor can show them all at once (`laplace::parser::laplacelib::parse`,
 /// compiling a whole package, stops at the first).
+///
+/// Blocks that start inside a `@template` or `@macro` definition are not
+/// blocks of this file, and are skipped the same way `laplacelib::parse`
+/// skips them: a macro header ends `in model {`, which reads exactly like
+/// a `model` block, and a template body is full of real ones.
+///
+/// If a definition does not parse, its extent is unknown, and every block
+/// after it could be a header misread. Nothing is reported then: the
+/// compiler stops at the broken definition too, and
+/// [`library_item_diagnostic`] says what is wrong with it.
 fn forbidden_block_diagnostics(source: &str, starts: &[usize]) -> Vec<Diagnostic> {
+    let (Ok(templates), Ok(macros)) = (find_templates(source, &|_| false), find_macros(source, &|_| false)) else {
+        return Vec::new();
+    };
+    let definitions: Vec<Range<usize>> = templates
+        .into_iter()
+        .map(|t| t.range)
+        .chain(macros.into_iter().map(|m| m.range))
+        .collect();
+    let in_definition = |offset: usize| definitions.iter().any(|r| r.contains(&offset));
+
     find_top_level_blocks(source)
         .into_iter()
         .filter(|b| !matches!(b.kind, BlockKind::Library | BlockKind::Functions))
+        .filter(|b| !in_definition(b.byte_range.start))
         .map(|b| {
             let keyword = b.kind.keyword();
             diagnostic(
@@ -214,14 +269,51 @@ fn forbidden_block_diagnostics(source: &str, starts: &[usize]) -> Vec<Diagnostic
         .collect()
 }
 
-/// Which [`code`] a `codegen` failure reports under. Only the two
-/// "`pkg::name` is not exported" variants are separated out, because those
-/// are the ones a `@use` / `@expand` of a template or macro triggers today.
+/// What `laplacelib::parse` has to say about a library's own definitions:
+/// a `pub` in the wrong place, a malformed `@template` or `@macro`. At
+/// most one, since the parser stops at the first.
+///
+/// Forbidden blocks and the `library { }` block are skipped: both are
+/// reported elsewhere, and in more detail. `__` is the caller's.
+fn library_item_diagnostic(source: &str, starts: &[usize]) -> Option<Diagnostic> {
+    let err = laplacelib::parse(Path::new(SOURCE_NAME), source).err()?;
+    let (line, column) = match &err {
+        LaplaceLibError::Visibility { line, column, .. }
+        | LaplaceLibError::Macro { line, column, .. }
+        | LaplaceLibError::Template { line, column, .. } => (*line, *column),
+        LaplaceLibError::ForbiddenBlock { .. }
+        | LaplaceLibError::Imports { .. }
+        | LaplaceLibError::ReservedIdentifier { .. } => return None,
+    };
+    let range = line_range_from(source, line_col_to_offset(source, line, column));
+    let message = without_own_location(&err.to_string());
+    Some(diagnostic(source, starts, range, code::LIBRARY_ITEM, message))
+}
+
+/// Which [`code`] a `codegen` failure reports under.
 fn codegen_error_code(err: &CodegenError) -> &'static str {
     match err {
         CodegenError::FunctionNotExported { .. } | CodegenError::UnknownPackageReference { .. } => {
             code::UNKNOWN_EXPORT
         }
+        CodegenError::Expand(e) if matches!(**e, BlockExpandError::UnknownTemplate { .. }) => {
+            code::UNKNOWN_EXPORT
+        }
+        CodegenError::ExpandMacro(e) if matches!(**e, MacroExpandError::UnknownMacro { .. }) => {
+            code::UNKNOWN_EXPORT
+        }
+        CodegenError::ItemIsPrivate { .. } => code::PRIVATE_ITEM,
+        CodegenError::Expand(e) if matches!(**e, BlockExpandError::TemplateIsPrivate { .. }) => {
+            code::PRIVATE_ITEM
+        }
+        CodegenError::ExpandMacro(e) if matches!(**e, MacroExpandError::MacroIsPrivate { .. }) => {
+            code::PRIVATE_ITEM
+        }
+        CodegenError::Template(_)
+        | CodegenError::Expand(_)
+        | CodegenError::Macro(_)
+        | CodegenError::ExpandMacro(_) => code::EXPANSION,
+        CodegenError::Monomorphize(_) => code::HIGHER_ORDER,
         _ => code::CODEGEN,
     }
 }
@@ -248,12 +340,14 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
         // someone else's dependency, are both problems in a package's own
         // source: the nearest thing to them in *this* file is the import
         // that pulled that package in.
-        | CodegenError::MissingDependency { package, .. } => import_of(package).unwrap_or(0..0),
+        | CodegenError::MissingDependency { package, .. }
+        | CodegenError::DuplicatePackage { package } => import_of(package).unwrap_or(0..0),
         CodegenError::UndeclaredPackageReference { in_package, .. } => {
             import_of(in_package).unwrap_or(0..0)
         }
         CodegenError::FunctionNotExported { package, func }
         | CodegenError::UnknownPackageReference { package, func }
+        | CodegenError::ItemIsPrivate { package, func, .. }
         // Calling a density without `~` is a mistake at the call site, not
         // in the import: point at the call the user has to rewrite.
         | CodegenError::DensityCalledWithoutTilde { package, func, .. } => calls
@@ -268,11 +362,6 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
             second_package,
             ..
         }
-        | CodegenError::PrivateFunctionCollision {
-            first_package,
-            second_package,
-            ..
-        }
         | CodegenError::FunctionFileCollision {
             first_package,
             second_package,
@@ -280,7 +369,66 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
         } => import_of(first_package)
             .or_else(|| import_of(second_package))
             .unwrap_or(0..0),
+        // Expansion and specialization errors already name the line they
+        // are about. When that line is in a package rather than here, the
+        // message keeps its `-->` and the start of the file stands in.
+        CodegenError::Template(_)
+        | CodegenError::Expand(_)
+        | CodegenError::Macro(_)
+        | CodegenError::ExpandMacro(_)
+        | CodegenError::Monomorphize(_) => {
+            let offset = own_location(source, &err.to_string()).or(match err {
+                CodegenError::Template(e) => Some(e.offset()),
+                CodegenError::Macro(e) => Some(e.offset()),
+                _ => None,
+            });
+            offset.map_or(0..0, |o| line_range_from(source, o))
+        }
     }
+}
+
+/// The byte offset a compiler message points at with
+/// `--> <source>:line:column`, if it points into this file.
+fn own_location(source: &str, message: &str) -> Option<usize> {
+    let prefix = format!("--> {SOURCE_NAME}:");
+    let rest = message.lines().find_map(|l| l.trim_start().strip_prefix(prefix.as_str()))?;
+    let (line, column) = rest.trim_end().split_once(':')?;
+    Some(line_col_to_offset(source, line.parse().ok()?, column.parse().ok()?))
+}
+
+/// The message without its `--> <source>:...` line: the diagnostic's range
+/// already says where. A `-->` into a package is kept, since nothing else
+/// says where that is.
+fn without_own_location(message: &str) -> String {
+    let prefix = format!("--> {SOURCE_NAME}:");
+    message
+        .lines()
+        .filter(|l| !l.trim_start().starts_with(prefix.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The byte offset of a 1-indexed line and character column, as
+/// `laplace::parser::origin::line_col` counts them. Clamped to the line.
+fn line_col_to_offset(source: &str, line: usize, column: usize) -> usize {
+    let starts = line_starts(source);
+    let Some(&start) = starts.get(line.saturating_sub(1)) else {
+        return source.len();
+    };
+    let text = source[start..].split('\n').next().unwrap_or("");
+    start
+        + text
+            .char_indices()
+            .nth(column.saturating_sub(1))
+            .map_or(text.len(), |(i, _)| i)
+}
+
+/// From `offset` to the end of its line, trailing whitespace excluded: the
+/// `@use ...;`, `@expand ...;` or header the compiler pointed at.
+fn line_range_from(source: &str, offset: usize) -> Range<usize> {
+    let offset = offset.min(source.len());
+    let rest = source[offset..].split('\n').next().unwrap_or("");
+    offset..offset + rest.trim_end().len()
 }
 
 fn diagnostic(
@@ -393,7 +541,7 @@ mod tests {
         let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("matern_cov"));
-        assert!(diags[0].message.contains("not in `gps`'s exports"));
+        assert!(diags[0].message.contains("defines no `matern_cov`"));
     }
 
     #[test]
@@ -496,43 +644,60 @@ mod tests {
         assert_eq!(codes(&diags), vec![code::UNKNOWN_EXPORT]);
     }
 
-    /// Patch-1 syntax the compiler does not accept yet. These two tests pin
-    /// down exactly which diagnostics it provokes, which is what the
-    /// extension's `laplace.diagnostics.unsupportedSyntax` setting filters.
-    /// If a compiler update changes this set, these fail and the client's
-    /// filter list has to be revisited.
-    #[test]
-    fn a_macro_headers_in_clause_looks_like_a_forbidden_block() {
-        let tmp = tempfile::tempdir().unwrap();
-        let lock = install_gps(tmp.path());
-        // `in model {` puts `model {` at brace depth 0, which
-        // `find_top_level_blocks` cannot tell from a real `model` block.
-        let source = "\
+    // --- patch 1 ----------------------------------------------------------
+
+    /// A `.laplacelib` package `stats` with templates and macros, in the
+    /// shape the compiler's own acceptance tests use.
+    const STATS_LIB: &str = "\
+pub @template ncp($name: ident, $N: expr) {
+  parameters {
+    vector[$N] ${name}_raw;
+    real<lower=0> ${name}_sigma;
+  }
+  transformed parameters {
+    vector[$N] $name = ${name}_sigma * ${name}_raw;
+  }
+  model {
+    ${name}_raw ~ std_normal();
+  }
+}
+
+@template internal_only($n: ident) {
+  parameters {
+    real $n;
+  }
+}
+
 pub @macro priors(each $p: ident, $dist: expr) : stmt in model {
   $p ~ $dist;
 }
+
+pub real half(real x) {
+  return x / 2;
+}
 ";
-        let diags = compute_diagnostics(source, Dialect::Library, &lock, tmp.path());
-        assert_eq!(codes(&diags), vec![code::FORBIDDEN_BLOCK]);
+
+    /// Installs `stats` (above) into `cache_root/stats/1.0.0/`.
+    fn install_stats(cache_root: &Path) -> Lockfile {
+        let dir = cache_root.join("stats").join("1.0.0");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("laplace.toml"), "name = \"stats\"\nversion = \"1.0.0\"\n").unwrap();
+        fs::write(dir.join("stats.laplacelib"), STATS_LIB).unwrap();
+
+        Lockfile {
+            root: vec!["stats".to_string()],
+            packages: vec![LockedPackage {
+                name: "stats".to_string(),
+                version: "1.0.0".to_string(),
+                checksum: "sha256:whatever".to_string(),
+                source: "registry".to_string(),
+                dependencies: Vec::new(),
+            }],
+        }
     }
 
     #[test]
-    fn a_use_of_a_template_looks_like_an_unexported_function() {
-        let tmp = tempfile::tempdir().unwrap();
-        let lock = install_gps(tmp.path());
-        // A template is not a function export, so `gps::ncp` resolves to
-        // nothing -- the same diagnostic a genuine typo would get.
-        let source = "library {\n  import gps\n}\n\n@use gps::ncp(theta, K);\n\nmodel {\n}\n";
-        let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
-        assert_eq!(codes(&diags), vec![code::UNKNOWN_EXPORT]);
-    }
-
-    /// The rest of patch 1 is invisible to these checks: `codegen` splices
-    /// source, it never parses Stan statements, so there is no parse error
-    /// to suppress. Anything Stan-level would come from `stanc` instead,
-    /// under `source: "stanc"`.
-    #[test]
-    fn the_rest_of_patch_1_produces_no_diagnostics_at_all() {
+    fn a_library_using_all_of_patch_1_is_clean() {
         let tmp = tempfile::tempdir().unwrap();
         let lock = install_gps(tmp.path());
         let source = "\
@@ -561,8 +726,151 @@ pub @template ncp($name: ident, $N: expr) {
     ${name}_raw ~ std_normal();
   }
 }
+
+pub @macro priors(each $p: ident, $dist: expr) : stmt in model {
+  $p ~ $dist;
+}
 ";
         let diags = compute_diagnostics(source, Dialect::Library, &lock, tmp.path());
         assert!(diags.is_empty(), "expected none, got {:?}", codes(&diags));
+    }
+
+    /// `in model {` puts `model {` at brace depth 0, where
+    /// `find_top_level_blocks` alone cannot tell it from a real block.
+    #[test]
+    fn a_macro_headers_in_clause_is_not_a_forbidden_block() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "\
+pub @macro z($p: ident) : stmt in transformed parameters, generated quantities {
+  real ${p}_z = 0;
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert!(diags.is_empty(), "expected none, got {:?}", codes(&diags));
+    }
+
+    /// A `~` cannot go in `transformed parameters`, so the compiler rejects
+    /// this macro. That is the one thing to report: its `model {` is still
+    /// part of a header, not a block.
+    #[test]
+    fn a_macro_with_an_impossible_target_is_flagged_as_the_macro() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "\
+pub @macro z($p: ident) : stmt in transformed parameters, model {
+  $p ~ std_normal();
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert_eq!(codes(&diags), vec![code::LIBRARY_ITEM], "{diags:?}");
+    }
+
+    #[test]
+    fn a_real_model_block_after_a_macro_is_still_forbidden() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "\
+pub @macro z($p: ident) : stmt in model {
+  $p ~ std_normal();
+}
+
+model {
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert_eq!(codes(&diags), vec![code::FORBIDDEN_BLOCK]);
+        assert_eq!(diags[0].range.start.line, 4);
+    }
+
+    #[test]
+    fn a_model_using_templates_and_macros_is_clean() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_stats(tmp.path());
+        let source = "\
+library {
+  import stats
+}
+
+@use stats::ncp(theta, K);
+
+data {
+  int K;
+}
+parameters {
+  real alpha;
+  real beta;
+}
+model {
+  @expand stats::priors([alpha, beta], normal(0, 1));
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
+        assert!(diags.is_empty(), "expected none, got {:?}", diags);
+    }
+
+    #[test]
+    fn an_unknown_template_is_flagged_on_its_use() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_stats(tmp.path());
+        let source = "library {\n  import stats\n}\n\n@use stats::nope(theta, K);\n";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
+
+        assert_eq!(codes(&diags), vec![code::UNKNOWN_EXPORT]);
+        assert!(diags[0].message.contains("no template `nope`"), "{}", diags[0].message);
+        assert_eq!(diags[0].range.start.line, 4);
+        assert_eq!(diags[0].range.start.character, 0);
+        // The range says where; the message need not.
+        assert!(!diags[0].message.contains(SOURCE_NAME), "{}", diags[0].message);
+    }
+
+    #[test]
+    fn a_private_template_is_flagged_as_private() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_stats(tmp.path());
+        let source = "library {\n  import stats\n}\n\n@use stats::internal_only(z);\n";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
+        assert_eq!(codes(&diags), vec![code::PRIVATE_ITEM]);
+        assert_eq!(diags[0].range.start.line, 4);
+    }
+
+    #[test]
+    fn a_macro_expanded_in_the_wrong_block_is_flagged_there() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock = install_stats(tmp.path());
+        let source = "\
+library {
+  import stats
+}
+parameters {
+  real alpha;
+}
+generated quantities {
+  @expand stats::priors([alpha], normal(0, 1));
+}
+";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
+        assert_eq!(codes(&diags), vec![code::EXPANSION]);
+        assert_eq!(diags[0].range.start.line, 7);
+    }
+
+    #[test]
+    fn a_double_underscore_identifier_is_flagged_at_the_identifier() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = "data {\n  int my__n;\n}\n";
+        let diags = compute_diagnostics(source, Dialect::Laplace, &Lockfile::default(), tmp.path());
+
+        assert_eq!(codes(&diags), vec![code::RESERVED_IDENTIFIER]);
+        assert_eq!(diags[0].range.start.line, 1);
+        assert_eq!(diags[0].range.start.character, 6);
+        assert_eq!(diags[0].range.end.character, 11);
+        assert!(diags[0].message.contains("my_n"), "{}", diags[0].message);
+    }
+
+    #[test]
+    fn a_malformed_macro_in_a_library_is_flagged() {
+        let tmp = tempfile::tempdir().unwrap();
+        // No `: stmt in <blocks>` clause.
+        let source = "real f(real x) {\n  return x;\n}\n\npub @macro bad($p: ident) {\n  $p ~ std_normal();\n}\n";
+        let diags = compute_diagnostics(source, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert_eq!(codes(&diags), vec![code::LIBRARY_ITEM], "{diags:?}");
+        assert_eq!(diags[0].range.start.line, 4);
     }
 }

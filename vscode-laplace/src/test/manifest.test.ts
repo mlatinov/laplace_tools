@@ -39,17 +39,8 @@ test("every registered command is declared", () => {
   }
 });
 
-test("the status bar indicator points at a real command", () => {
-  const target = /item\.command = "([^"]+)"/.exec(source)?.[1];
-  assert.ok(target, "the status bar item has no command");
-  assert.ok(
-    commands.some((c) => c.command === target),
-    `the status bar item points at ${target}, which is not declared`,
-  );
-});
-
-test("the settings the commands toggle exist, and are booleans", () => {
-  for (const key of ["laplace.docs.renderMath", "laplace.diagnostics.unsupportedSyntax"]) {
+test("the setting the command toggles exists, and is a boolean", () => {
+  for (const key of ["laplace.docs.renderMath"]) {
     const setting = settings[key];
     assert.ok(setting, `${key} is not contributed, so it cannot be changed in the settings editor`);
     assert.equal(setting.type, "boolean", `${key} should be a boolean`);

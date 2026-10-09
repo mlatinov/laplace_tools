@@ -24,16 +24,14 @@ for `.laplace` files — a source-to-source preprocessor for
   `//@math` section is LaTeX; instead of showing it as raw source, the
   extension renders it with MathJax (bundled — no network) and colours it
   for the active theme.
-- **Highlighting for Laplace patch-1 syntax** — see below.
+- **Laplace patch-1 syntax** — highlighting, snippets and diagnostics; see
+  below.
 
 ## Patch-1 syntax
 
-**Highlighting support only — compiler support is coming in the next
-release.** The four constructs below are coloured, folded, and have
-snippets, so a library can be written in the new syntax with the editor
-keeping up. The Laplace compiler does not accept any of them yet, and this
-extension adds no semantic understanding of them: no completion, no
-go-to-definition, no type checking.
+The four constructs below are coloured, folded, have snippets, and are
+checked as you type by the same compiler code that builds them (it needs the
+`laplace` compiler with patch 1, which `laplace-lsp` is built against).
 
 | Construct | Example |
 |---|---|
@@ -44,31 +42,23 @@ go-to-definition, no type checking.
 | Templates | `pub @template ncp($name: ident, $N: expr) { ... }` — used as `@use pkg::ncp(theta, K);` |
 | Statement macros | `pub @macro priors(each $p: ident, $dist: expr) : stmt in model { ... }` — used as `@expand pkg::priors([alpha, beta], normal(0, 1));` |
 
-### Diagnostics while the compiler catches up
+### Diagnostics
 
-Because the compiler is still the old one, patch-1 files draw diagnostics that
-are artefacts of its age rather than real problems. Set
-`laplace.diagnostics.unsupportedSyntax` to `false` (or run **Laplace: Toggle
-diagnostics from unsupported (patch-1) syntax**) to hide them.
+Mistakes in patch-1 syntax are reported where they are written:
 
-Only the diagnostics *caused by* patch-1 syntax are hidden. Each rule is
-anchored to the syntax that causes it, so turning this off does not turn off
-error checking:
+| Reported | Where |
+|---|---|
+| `@use` / `@expand` of a name the package does not define, or did not mark `pub` | on the `@use` / `@expand` line |
+| wrong argument count, an argument of the wrong kind, a macro expanded in a block its `in` list does not name | on the `@use` / `@expand` line |
+| two expansions declaring the same name | at the top of the file — the compiler names both expansions in the message, but not a line |
+| a malformed `@template` or `@macro`, a misplaced `pub`, a macro whose statements cannot go in its target blocks | on the definition, in the `.laplacelib` |
+| a higher-order function that cannot be specialized, a bad `@wait(f)` | where the compiler points: the definition, or the call that binds it |
+| an identifier containing `__`, which laplace reserves for the names it generates | on the identifier |
 
-| Hidden | Only when | Still reported |
-|---|---|---|
-| "cannot contain a `model` block" | on a `@macro` header line | a real `model` block in a `.laplacelib` |
-| "`pkg::name` is not in `pkg`'s exports" | on a line with `@use` / `@expand` | a mistyped `pkg::func` anywhere else |
-| `stanc` diagnostics | from the first patch-1 line onward | a missing `;` **above** a template; any file with no patch-1 syntax at all |
-
-Unresolved imports, version conflicts and uninstalled packages are always
-reported.
-
-There is one limit no editor-side filter can lift: `stanc` stops at its first
-error, so when patch-1 syntax comes first in a file it never parses the rest,
-and ordinary Stan mistakes further down go unreported. That ends when the
-compiler learns the syntax. While diagnostics are hidden, a warning sits in the
-status bar as a reminder.
+`stanc` checks the expanded program, so an ordinary Stan mistake is reported
+wherever it sits — below a `@use`, inside a model that expands a macro, or
+after a template in a library. Where `stanc` is not installed, only the
+laplace-level checks above run.
 
 ### Snippets
 
@@ -115,25 +105,18 @@ This extension contributes the following settings:
 | `laplace.serverPath`      | `laplace-lsp`   | Path to the `laplace-lsp` executable. Defaults to resolving `laplace-lsp` on `PATH`. Set an absolute path if it isn't on `PATH`. |
 | `laplace.trace.server`    | `off`           | Trace communication between the editor and `laplace-lsp` (`off` \| `messages` \| `verbose`) — useful for debugging the extension itself, not your `.laplace` code. |
 | `laplace.docs.renderMath` | `true`          | Render a doc comment's `//@math` section as a formula in hovers. Set to `false` to see the LaTeX source as written. |
-| `laplace.diagnostics.unsupportedSyntax` | `true` | Show the diagnostics that patch-1 syntax provokes from a compiler that does not accept it yet. Set to `false` while rewriting a library in the new syntax. Import and lockfile diagnostics are always shown. |
 
 ## Commands
 
-Both of these are in the Command Palette (`Ctrl+Shift+P`) under **Laplace**, as
-a shortcut for the corresponding setting:
+This is in the Command Palette (`Ctrl+Shift+P`) under **Laplace**, as a
+shortcut for the corresponding setting:
 
 | Command | Does |
 |---|---|
-| `Laplace: Toggle diagnostics from unsupported (patch-1) syntax` | flips `laplace.diagnostics.unsupportedSyntax` |
 | `Laplace: Toggle rendering of //@math doc formulas` | flips `laplace.docs.renderMath` |
 
-They write to the workspace when one is open, so hiding diagnostics while
-rewriting one library does not leak into your other projects.
-
-While patch-1 diagnostics are hidden, a warning appears in the status bar --
-suppressing them also suppresses the whole `stanc` pass, so it is worth being
-able to see at a glance that Stan-level checking is off. Click it to turn them
-back on.
+It writes to the workspace when one is open, so the choice does not leak into
+your other projects.
 
 ## Known limitations
 
@@ -146,10 +129,10 @@ This is an early release. Not yet supported:
 - Document formatting.
 - Distribution-aware completion (argument types/signatures for `normal`,
   `poisson`, etc.).
-- Anything semantic about patch-1 syntax — it is highlighted, but not
-  understood: no completion for template or macro names, no
-  go-to-definition on `@use` / `@expand`, and no checking that a
-  placeholder is bound or that a macro's target blocks exist.
+- Completion, hover and go-to-definition for patch-1 syntax: template and
+  macro names are not completed after `@use pkg::` / `@expand pkg::`, and
+  `@use` / `@expand` do not jump to the definition. Diagnostics are
+  complete; navigation is not there yet.
 - `//@math` rendering in completion documentation and signature help.
   `laplace-lsp` puts only a function's `@brief` in a completion item and
   has no signature-help provider, so the hover is currently the only place

@@ -53,7 +53,6 @@ const unitTests = {
   entryPoints: [
     "src/test/math.test.ts",
     "src/test/docs.test.ts",
-    "src/test/diagnosticFilter.test.ts",
     "src/test/languageConfig.test.ts",
     "src/test/manifest.test.ts",
   ],

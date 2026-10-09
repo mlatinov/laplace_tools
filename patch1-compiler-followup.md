@@ -1,139 +1,73 @@
-# Patch 1: what to change once the compiler accepts the new syntax
+# Patch 1: follow-up now that the compiler accepts the new syntax
 
 The editor tooling for Laplace patch-1 syntax (`pub`, `func(...) -> ...`,
 `@wait(...)`, sized return types, `@template`/`@use`, `@macro`/`@expand`)
-shipped **ahead of the compiler**, deliberately. A fair amount of what it
-contains exists only to paper over a compiler that rejects the syntax, and
-becomes dead weight the moment that changes.
-
-This file is the list of what to undo, what to keep, and what becomes possible.
-Written 2026-09-29, against `vscode-laplace` 0.3.0 and the `laplace` crate at
-`../laplace` (a separate repo, reached by the `laplace-lsp` path dependency
-`../../laplace`).
+shipped **ahead of the compiler** (2026-09-29, `vscode-laplace` 0.3.0), with
+workarounds for a compiler that rejected the syntax. The compiler caught up in
+`laplace` commit `65103d1` (2026-10-08). This file was the checklist for
+undoing the workarounds; §0–§3 and §6 record how that went (2026-10-09,
+`vscode-laplace` 0.4.0). §5, §7 and §8 are still live.
 
 ---
 
-## 0. Tripwires: tests that are *supposed* to fail
+## 0. Tripwires — resolved
 
-These assert that the compiler mishandles patch-1 syntax. When it stops doing
-so, they fail — which is the point. Do not "fix" them by loosening the
-assertion; delete or invert them, then work through this file.
+| Test | Outcome |
+|---|---|
+| `a_macro_headers_in_clause_looks_like_a_forbidden_block` | still passed: the LSP called `find_top_level_blocks` itself (§1a). Inverted to `a_macro_headers_in_clause_is_not_a_forbidden_block` |
+| `a_use_of_a_template_looks_like_an_unexported_function` | failed, as intended (§1b). Replaced by tests that `@use`/`@expand` resolve, and that an unknown or private one is reported on its line |
+| `the_rest_of_patch_1_produces_no_diagnostics_at_all` | still true; now `a_library_using_all_of_patch_1_is_clean`, with a `@macro` added |
+| `math_is_lifted_out_of_real_rendered_output` (`hover.rs`) | **kept** — it guards `laplace::docs`'s render format, nothing to do with patch 1 |
 
-| Test | In | Asserts |
+`laplace-lsp` also stopped compiling, as §7 predicted: `CodegenError` lost
+`PrivateFunctionCollision` and gained eight variants, and `FunctionSig` gained
+seven fields.
+
+## 1. The two compiler fixes
+
+**1b (`@use` / `@expand`) — fixed in the compiler.** codegen resolves templates
+and macros as their own kind of export.
+
+**1a (`@macro` header) — fixed in the compiler, but not where this file said.**
+`find_top_level_blocks` is unchanged; `laplacelib::parse` instead drops blocks
+that start inside a template or macro definition. Anything calling
+`find_top_level_blocks` directly still sees `in model {` as a `model` block,
+so `laplace-lsp` does the same filtering in two places:
+`diagnostics::forbidden_block_diagnostics`, and `stanc::wrap_library_source`,
+which now builds on `laplacelib::parse`.
+
+## 2. Stan-level checking — restored
+
+Re-verified with a real `stanc` (cmdstan 2.39):
+
+| shape | before | now |
 |---|---|---|
-| `a_macro_headers_in_clause_looks_like_a_forbidden_block` | `laplace-lsp/src/diagnostics.rs` | a `@macro` header's `in model {` is reported as a forbidden block |
-| `a_use_of_a_template_looks_like_an_unexported_function` | `laplace-lsp/src/diagnostics.rs` | `@use pkg::name` is reported as an unexported function |
-| `the_rest_of_patch_1_produces_no_diagnostics_at_all` | `laplace-lsp/src/diagnostics.rs` | `pub`, `func(...)`, `@wait`, placeholders, sized returns produce nothing |
-| `math_is_lifted_out_of_real_rendered_output` | `laplace-lsp/src/hover.rs` | couples to `laplace::docs`'s terminal format; fails if that is reformatted |
+| model, `@use` above or below a missing `;`; `@expand` above one | only `unknown-export` | `stanc` reports the `;` |
+| model with no patch-1 syntax (control) | `stanc` reports it | unchanged |
+| library, error below a template, macro, HOF and sized return | nothing (macro header read as a forbidden block, so no `stanc` run) | `stanc` reports it on the right line |
+| clean library using `pub` | false "Ill-formed block" at `pub` (hidden by the extension's filter) | clean |
 
----
+Models were fixed by §1b alone. Libraries needed the LSP change above: the raw
+text, `pub` and all, used to go straight to `stanc`; now it is what
+`laplacelib::parse` emits, with HOFs and sized returns left for codegen.
+`stanc.rs` has real-`stanc` tests for both cases, which skip when no `stanc`
+is installed.
 
-## 1. Two compiler fixes the editor cannot work around
+## 3. The diagnostics filter — deleted
 
-### 1a. `find_top_level_blocks` and the `@macro` header
+All of it, as listed: `diagnosticFilter.ts` and its test, the
+`handleDiagnostics` middleware, the status-bar indicator, the
+`laplace.diagnostics.unsupportedSyntax` setting and its toggle command, their
+`manifest.test.ts` assertions, and the README sections. One spot the list
+missed: `esbuild.js` names each test file.
 
-`laplace::parser::blocks::find_top_level_blocks` walks braces and matches a
-block keyword followed by `{` at depth 0. A macro header ends
-`... : stmt in model {`, which puts `model {` at depth 0, so it is
-indistinguishable from a real `model` block. In a `.laplacelib` that produces:
-
-> a `.laplacelib` file cannot contain a `model` block
-
-**Any** `in <blocks> {` triggers it, not just `model` — the last block name
-before the brace is the one that matches.
-
-Fix in the compiler: skip the `in` clause of a `@macro` header. Then
-`forbidden_block_diagnostics` in `laplace-lsp/src/diagnostics.rs` is correct
-again with no client-side help, and the `forbidden-block` rule in the
-extension's filter can go.
-
-### 1b. `find_qualified_calls` and `@use` / `@expand`
-
-`laplace::codegen::rename::find_qualified_calls` sees
-`@use pkg::name(theta, K);` as a call to a function `name` in `pkg`. Since a
-template is not a function export, codegen fails with `FunctionNotExported`.
-
-This is the bad one, because of what it cascades into — see §2.
-
-Fix in the compiler: resolve templates and macros as their own kind of export,
-or exclude `@use` / `@expand` operands from the function-export check.
-
----
-
-## 2. Models currently get **no** Stan-level checking (and libraries partly do)
-
-Two different mechanisms, verified against the live server. Worth keeping
-straight, because they behave differently and only one has a workaround.
-
-**Fact that explains both: `stanc` reports only one error per run.** It stops at
-the first parse error. Verified on a file with two real mistakes and no patch-1
-syntax: only the first was reported.
-
-### Libraries (`.laplacelib`)
-
-codegen succeeds (nothing references `pkg::`), so `stanc` runs and stops at the
-first patch-1 construct.
-
-- an error **above** the first patch-1 line is reported normally
-- an error **below** it is not — `stanc` never got there
-
-Workaround that works today: keep templates and macros at the bottom of the
-file, or in files of their own.
-
-### Models (`.laplace`)
-
-codegen **fails** on the `@use` / `@expand` (§1b), and
-`stanc::compute_stanc_diagnostics` returns early when codegen fails. So `stanc`
-is never invoked and the whole file loses Stan checking — regardless of where
-the directive sits. No workaround; a model cannot move its `@use` out of itself.
-
-Verified:
-
-| file | shape | result |
-|---|---|---|
-| `m1` | missing `;` line 6, `@use` line 10 | only `unknown-export`; the `;` is **not** reported |
-| `m2` | `@use` line 5, missing `;` line 8 | same |
-| `m3` | `@expand` in `model {}`, missing `;` after | same |
-| `m4` | control, no `@use` | `stanc`: "Ill-formed declaration. Expected ';'" ✅ |
-
-**Fixing §1b fixes this outright**: codegen succeeds, `stanc` runs, the model is
-checked. Re-verify with the `m1`–`m4` shapes above.
-
-A tempting LSP-side workaround was considered and rejected: blank out the
-`@use` / `@expand` statements (space-padded to preserve offsets) before the
-`stanc` pass only. codegen would then succeed, but a `@use` injects
-declarations the model goes on to use, so `stanc` would report those as
-undefined variables — trading no checking for a fresh class of false positive.
-Not worth building for something the compiler removes.
-
----
-
-## 3. Delete: the diagnostics filter and everything around it
-
-Once §1a and §1b are fixed, patch-1 syntax stops provoking diagnostics and this
-all becomes dead code.
-
-- **`vscode-laplace/src/diagnosticFilter.ts`** — delete the module. Note it also
-  contains `firstUnsupportedLine` / `lineHasUnsupportedSyntax`, including a
-  regex for sized return types; nothing else uses them.
-- **`vscode-laplace/src/test/diagnosticFilter.test.ts`** — delete.
-- **`vscode-laplace/src/extension.ts`** — remove `handleDiagnostics` middleware,
-  `documentContext`, `createSuppressionIndicator`, `refreshIndicator`, the
-  `laplace.toggleUnsupportedSyntaxDiagnostics` handler, `UNSUPPORTED_SYNTAX`,
-  and the `client.restart()` branch in `onDidChangeConfiguration`. Keep
-  `toggle()` if the math command stays.
-- **`vscode-laplace/package.json`** — remove the setting
-  `laplace.diagnostics.unsupportedSyntax` and the command
-  `laplace.toggleUnsupportedSyntaxDiagnostics`.
-- **`vscode-laplace/src/test/manifest.test.ts`** — update the expected command
-  and settings lists (it asserts both exist).
-- **`vscode-laplace/README.md`** — remove the "Diagnostics while the compiler
-  catches up" section and the status-bar paragraph; change "highlighting
-  support, compiler support coming in the next release" to what is then true.
-
-Removing a published setting is breaking for anyone who set it. A user with
-`"laplace.diagnostics.unsupportedSyntax": false` in their settings will get an
-"unknown configuration" warning, nothing worse.
+What replaced it: diagnostics the filter used to hide are gone at the source,
+and the LSP reports the compiler's patch-1 errors itself, under new codes
+`private-item`, `reserved-identifier` (`__`, previously §5), `library-item`,
+`expansion` and `higher-order`. Expansion errors are placed with the
+compiler's own `--> <source>:line:col`. One gap: `Collision` / `OutOfOrder`
+(two expansions declaring one name) carry no location, so they land at the top
+of the file.
 
 ## 4. Keep
 
@@ -163,30 +97,23 @@ go-to-definition, no checking. Once the compiler has an AST for it:
 - **Hover** on a `@use` showing the template's expansion, and on a placeholder
   showing its declared kind.
 - **Semantic tokens** distinguishing a bound placeholder from an unbound one.
-- **Real diagnostics** that only the compiler can give: an unbound placeholder,
-  an argument whose kind does not match (`ident` vs `expr` vs `type`), a macro
-  expanded in a block absent from its `in` list, `each` applied to a non-list,
-  a `pub`-less template referenced from another package.
-- **`__` in user identifiers.** The compiler will reject it; the LSP could
-  surface it as a diagnostic. Patch 1 deliberately added no editor-side check.
+- ~~Real diagnostics~~ and ~~`__` in identifiers~~ — done in 0.4.0, see §3.
 
 ---
 
-## 6. Grammar details to re-check against the final syntax
+## 6. Grammar details — checked against the compiler
 
-The grammar was written from the spec, not from a working compiler. Confirm:
-
-- `#macro-target-blocks` ends at `(?=\{)|$`, so a macro header **wrapped across
-  lines** would stop matching at the newline. Fine today; revisit if the
-  compiler allows it.
-- Placeholder kinds: `ident` and `expr` are used, `type` is reserved. Macro
-  kinds: `stmt` is used, `decl` and `expr` are reserved. If the final names
-  differ, update `#placeholder-declaration` and `#macro-kind`.
-- Sized return types are described in the spec as "stripped by the compiler".
-  Confirm the final form still matches
-  `^\s*(?:pub\s+)?<type>\s*\[...\]\s+ident\s*\(`.
-- `\bfunc\s*\(` would also match a call to a user function named `func`.
-  Harmless, but if `func` becomes reserved this can be tightened.
+- **Wrapped macro headers: the compiler accepts them** (targets run up to the
+  body's `{`). `#macro-target-blocks` now ends at `(?=[{;}])` instead of
+  end-of-line, with a fixture for a header wrapped inside its block list. A
+  break directly after `in` still is not highlighted: the `begin` lookahead
+  cannot see the next line.
+- Placeholder kinds: the compiler has `ident` and `expr`; macro kinds: `stmt`.
+  Matches the grammar, which also colours the reserved `type`, `decl`, `expr`
+  — and the LSP now reports them as errors, which is the right signal.
+- Sized return types: the compiler's form matches the grammar's.
+- `func` is not reserved (`parser::functional::FUNC_KEYWORD` is only matched
+  in a parameter type), so `\bfunc\s*\(` stays as is.
 
 ---
 
