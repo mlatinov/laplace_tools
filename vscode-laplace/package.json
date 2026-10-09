@@ -30,6 +30,11 @@
         "command": "laplace.toggleRenderMath",
         "title": "Toggle rendering of //@math doc formulas",
         "category": "Laplace"
+      },
+      {
+        "command": "laplace.toggleSymbols",
+        "title": "Toggle math symbol display (σ for sigma)",
+        "category": "Laplace"
       }
     ],
     "languages": [
@@ -201,6 +206,11 @@
           "type": "boolean",
           "default": true,
           "description": "Render the `//@math` section of a doc comment as a formula in hover tooltips, instead of showing the raw LaTeX. Rendering runs locally (MathJax, bundled -- no network). Turn it off to see the LaTeX source as written."
+        },
+        "laplace.symbols.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Draw math symbols over plain names, for a model that reads like the maths on paper. **Display only**: the file keeps its plain names, which is what the compiler and `stanc` require.\n\n- A variable named after a Greek letter shows as the letter: `sigma` as σ, `Sigma` as Σ. Everything after the first `_` is its subscript, as LaTeX sets `\\sigma_{obs}`: `sigma_obs` shows as σ with a lowered `obs`.\n- `sum(...)`, `prod(...)`, `sqrt(...)` and `pi()` show as ∑ ∏ √ π, keeping their parentheses; `<=`, `>=`, `!=` show as ≤ ≥ ≠.\n- The lines your cursor is on always show the real text.\n- Typing `\\` offers LaTeX commands: `\\sigma` inserts `sigma`, `\\sigma_{obs}` inserts `sigma_obs`, `\\leq` inserts `<=`.\n\nNever applied in comments or strings, to `pkg::` names, or to Stan functions such as `beta(...)` and `gamma(...)`. Turn it off to see the file exactly as written."
         }
       }
     }

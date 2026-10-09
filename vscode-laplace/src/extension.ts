@@ -9,6 +9,7 @@ import {
 
 import { hasMathFence, renderMathFences } from "./docs";
 import { clearCache, renderMath, Theme } from "./math";
+import { activateSymbols, SYMBOLS_SETTING } from "./symbolsEditor";
 
 let client: LanguageClient | undefined;
 
@@ -21,7 +22,8 @@ const RENDER_MATH = "docs.renderMath";
 /// leak into every other.
 async function toggle(key: string): Promise<boolean> {
   const config = vscode.workspace.getConfiguration("laplace");
-  const next = !config.get<boolean>(key, true);
+  // No fallback: every toggled setting has a default in package.json.
+  const next = !config.get<boolean>(key);
   const target = vscode.workspace.workspaceFolders?.length
     ? vscode.ConfigurationTarget.Workspace
     : vscode.ConfigurationTarget.Global;
@@ -117,7 +119,18 @@ export function activate(context: vscode.ExtensionContext): void {
         4000,
       );
     }),
+    vscode.commands.registerCommand("laplace.toggleSymbols", async () => {
+      const on = await toggle(SYMBOLS_SETTING);
+      vscode.window.setStatusBarMessage(
+        on
+          ? "Laplace: showing math symbols (display only -- the file is unchanged)"
+          : "Laplace: showing plain names",
+        4000,
+      );
+    }),
   );
+
+  activateSymbols(context);
 
   // Formulas are cached per theme, so a switch already misses the cache and
   // re-renders in the new colour. This only stops the old theme's images

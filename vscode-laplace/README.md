@@ -26,6 +26,9 @@ for `.laplace` files — a source-to-source preprocessor for
   for the active theme.
 - **Laplace patch-1 syntax** — highlighting, snippets and diagnostics; see
   below.
+- **Math symbols (optional, off by default)** — show `sigma_obs` as σ with a
+  subscript, `sum(x)` as ∑(x), `<=` as ≤, and type them LaTeX-style with
+  `\sigma_{obs}`. Display only; see below.
 
 ## Patch-1 syntax
 
@@ -71,6 +74,44 @@ laplace-level checks above run.
 | `use` | `.laplace` | `@use pkg::name(...);` |
 | `expand` | `.laplace` | `@expand pkg::name([...], ...);` |
 
+## Math symbols
+
+An optional display mode, for a model that reads like the maths you wrote on
+paper before coding it. Turn it on with **Laplace: Toggle math symbol display**
+or the `laplace.symbols.enabled` setting; it is off by default.
+
+**It never changes the file.** Neither the compiler nor `stanc` accepts `σ` in
+a name, so the file keeps `sigma_obs` and the editor draws σ<sub>obs</sub> over
+it. Turning the setting off shows the file exactly as written, immediately.
+
+| In the file | Shown as |
+|---|---|
+| `sigma`, `mu`, `theta`, `Sigma`, `Omega` … | σ, μ, θ, Σ, Ω … |
+| `sigma_obs`, `theta_raw` | σ<sub>obs</sub>, θ<sub>raw</sub> — everything after the first `_` is the subscript, as LaTeX sets `\sigma_{obs}` |
+| `sum(x)`, `prod(x)`, `sqrt(x)`, `pi()` | ∑(x), ∏(x), √(x), π() — the parentheses stay |
+| `<=`, `>=`, `!=` | ≤, ≥, ≠ |
+
+Typing works LaTeX-style: type `\` and the suggestions list the commands with
+their symbols. `\sigma` inserts `sigma`; `\sigma_{obs}` (or `\sigma_y`) inserts
+`sigma_obs` (`sigma_y`); `\leq`, `\geq`, `\neq` insert `<=`, `>=`, `!=`; `\sum`,
+`\prod`, `\sqrt` insert the function name; `\pi` inserts `pi()`.
+
+What is left alone: comments and strings (a `//@math` section is LaTeX in its
+own right), `pkg::` names, `$placeholders`, and Stan functions that share a
+Greek name — `beta(a, b)` and `gamma(a, b)` stay as they are. The line your
+cursor is on always shows the real text, so you edit the actual characters.
+
+Limits:
+
+- VS Code has no supported way to hide text, so this uses the usual
+  workaround (CSS injected through a decoration). If an editor update breaks
+  it you will see the plain names, or both; turn the setting off.
+- Column numbers in error messages count the real text, so they will not
+  match what you see on a line full of symbols.
+- A drawn symbol takes the editor's plain text colour, not the semantic colour
+  of a parameter or data variable.
+- Search for `sigma`, not `σ`: the file contains the name.
+
 ## Requirements
 
 This extension is a thin client — the actual language intelligence comes
@@ -105,17 +146,19 @@ This extension contributes the following settings:
 | `laplace.serverPath`      | `laplace-lsp`   | Path to the `laplace-lsp` executable. Defaults to resolving `laplace-lsp` on `PATH`. Set an absolute path if it isn't on `PATH`. |
 | `laplace.trace.server`    | `off`           | Trace communication between the editor and `laplace-lsp` (`off` \| `messages` \| `verbose`) — useful for debugging the extension itself, not your `.laplace` code. |
 | `laplace.docs.renderMath` | `true`          | Render a doc comment's `//@math` section as a formula in hovers. Set to `false` to see the LaTeX source as written. |
+| `laplace.symbols.enabled` | `false`         | Draw math symbols over plain names (σ for `sigma`, ∑ for `sum(`, ≤ for `<=`) and offer `\sigma`-style input. Display only — the file is never changed. See [Math symbols](#math-symbols). |
 
 ## Commands
 
-This is in the Command Palette (`Ctrl+Shift+P`) under **Laplace**, as a
+Both are in the Command Palette (`Ctrl+Shift+P`) under **Laplace**, as a
 shortcut for the corresponding setting:
 
 | Command | Does |
 |---|---|
 | `Laplace: Toggle rendering of //@math doc formulas` | flips `laplace.docs.renderMath` |
+| `Laplace: Toggle math symbol display (σ for sigma)` | flips `laplace.symbols.enabled` |
 
-It writes to the workspace when one is open, so the choice does not leak into
+They write to the workspace when one is open, so the choice does not leak into
 your other projects.
 
 ## Known limitations

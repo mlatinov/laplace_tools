@@ -39,12 +39,17 @@ test("every registered command is declared", () => {
   }
 });
 
-test("the setting the command toggles exists, and is a boolean", () => {
-  for (const key of ["laplace.docs.renderMath"]) {
+test("the settings the commands toggle exist, and are booleans", () => {
+  const expected: Record<string, boolean> = {
+    "laplace.docs.renderMath": true,
+    // Optional: drawing symbols over someone's code is opt-in.
+    "laplace.symbols.enabled": false,
+  };
+  for (const [key, fallback] of Object.entries(expected)) {
     const setting = settings[key];
     assert.ok(setting, `${key} is not contributed, so it cannot be changed in the settings editor`);
     assert.equal(setting.type, "boolean", `${key} should be a boolean`);
-    assert.equal(setting.default, true, `${key} should default to true`);
+    assert.equal(setting.default, fallback, `${key} should default to ${fallback}`);
   }
 });
 
