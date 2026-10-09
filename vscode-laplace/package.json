@@ -2,7 +2,7 @@
   "name": "laplace-lang",
   "displayName": "Laplace Language Support",
   "description": "Syntax highlighting, semantic coloring, autocomplete, live diagnostics, and rendered @math doc formulas for .laplace and .laplacelib files (a source-to-source preprocessor for Stan). Works unmodified in Positron via Open VSX.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "MIT",
   "publisher": "laplace-lang",
   "engines": {
@@ -27,13 +27,13 @@
   "contributes": {
     "commands": [
       {
-        "command": "laplace.toggleUnsupportedSyntaxDiagnostics",
-        "title": "Toggle diagnostics from unsupported (patch-1) syntax",
+        "command": "laplace.toggleRenderMath",
+        "title": "Toggle rendering of //@math doc formulas",
         "category": "Laplace"
       },
       {
-        "command": "laplace.toggleRenderMath",
-        "title": "Toggle rendering of //@math doc formulas",
+        "command": "laplace.toggleSymbols",
+        "title": "Toggle math symbol display (σ for sigma)",
         "category": "Laplace"
       }
     ],
@@ -207,10 +207,10 @@
           "default": true,
           "description": "Render the `//@math` section of a doc comment as a formula in hover tooltips, instead of showing the raw LaTeX. Rendering runs locally (MathJax, bundled -- no network). Turn it off to see the LaTeX source as written."
         },
-        "laplace.diagnostics.unsupportedSyntax": {
+        "laplace.symbols.enabled": {
           "type": "boolean",
-          "default": true,
-          "markdownDescription": "Show diagnostics that Laplace patch-1 syntax provokes from a compiler that does not accept it yet. Set to `false` while rewriting a library in the new syntax.\n\nOnly diagnostics **caused by** patch-1 syntax are hidden, and each rule is anchored to the syntax that causes it:\n\n- \"cannot contain a `model` block\", but only on a `@macro` header line. A real `model` block in a `.laplacelib` is still reported.\n- \"`pkg::name` is not in `pkg`'s exports\", but only on a line carrying `@use` or `@expand`. A mistyped `pkg::func` anywhere else is still reported.\n- `stanc` diagnostics, but only from the first line containing patch-1 syntax onward. `stanc` stops at its first error, so a missing `;` **above** a template keeps its squiggle, and a file with no patch-1 syntax at all is untouched.\n\nUnresolved imports, version conflicts and uninstalled packages are always reported. Changing this restarts the language server so already-published diagnostics are recomputed.\n\nOne limit no editor-side filter can lift: when patch-1 syntax comes first in a file, `stanc` stops there and never parses the rest, so ordinary Stan mistakes further down go unreported until the compiler learns the syntax."
+          "default": false,
+          "markdownDescription": "Draw math symbols over plain names, for a model that reads like the maths on paper. **Display only**: the file keeps its plain names, which is what the compiler and `stanc` require.\n\n- A variable named after a Greek letter shows as the letter: `sigma` as σ, `Sigma` as Σ. Everything after the first `_` is its subscript, as LaTeX sets `\\sigma_{obs}`: `sigma_obs` shows as σ with a lowered `obs`.\n- `sum(...)`, `prod(...)`, `sqrt(...)` and `pi()` show as ∑ ∏ √ π, keeping their parentheses; `<=`, `>=`, `!=` show as ≤ ≥ ≠.\n- The lines your cursor is on always show the real text.\n- Typing `\\` offers LaTeX commands: `\\sigma` inserts `sigma`, `\\sigma_{obs}` inserts `sigma_obs`, `\\leq` inserts `<=`.\n\nNever applied in comments or strings, to `pkg::` names, or to Stan functions such as `beta(...)` and `gamma(...)`. Turn it off to see the file exactly as written."
         }
       }
     }

@@ -107,6 +107,13 @@ pub @macro positives(each $p: ident) : stmt in transformed parameters, generated
   real ${p}_c = $p - $mu;
 }
 
+// A header wrapped inside its block list: the compiler reads targets up to
+// the body's `{`, so the second line is still part of the list.
+pub @macro both(each $p: ident) : stmt in transformed parameters,
+    generated quantities {
+  real ${p}_sq = square($p);
+}
+
 // --- regression: `in` in a `for` loop is not a block list ----------------
 
 real total(vector x, int N) {

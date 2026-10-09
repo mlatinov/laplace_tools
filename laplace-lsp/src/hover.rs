@@ -117,6 +117,7 @@ mod tests {
                 example: Some("rbf_cov([1.0]')".to_string()),
                 math: math.map(str::to_string),
             }),
+            ..Default::default()
         }
     }
 

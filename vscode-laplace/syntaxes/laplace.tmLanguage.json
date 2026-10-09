@@ -209,14 +209,14 @@
       ]
     },
     "macro-target-blocks": {
-      "comment": "The `in <block>, <block>` clause of a macro header. Block names here are not followed by `{`, so `#block-keywords` cannot match them on its own. The `begin` demands a block name immediately after `in`, which is what keeps this off `for (n in 1:N) {` -- the one place `in` already appears in ordinary Stan code.",
+      "comment": "The `in <block>, <block>` clause of a macro header. Block names here are not followed by `{`, so `#block-keywords` cannot match them on its own. The `begin` demands a block name immediately after `in`, which is what keeps this off `for (n in 1:N) {` -- the one place `in` already appears in ordinary Stan code. The clause runs up to the body's `{`, across a line break if the header wraps inside its block list, as the compiler allows; `;` and `}` also end it, so a header still being typed cannot swallow what follows.",
       "begin": "\\b(in)\\b(?=\\s*(?:transformed\\s+(?:data|parameters)|generated\\s+quantities|functions|data|parameters|model)\\b)",
       "beginCaptures": {
         "1": {
           "name": "keyword.control.laplace"
         }
       },
-      "end": "(?=\\{)|$",
+      "end": "(?=[{;}])",
       "patterns": [
         {
           "name": "keyword.control.block.laplace",

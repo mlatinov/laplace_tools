@@ -655,6 +655,52 @@
 >}
 #^^ source.laplacelib
 >
+>// A header wrapped inside its block list: the compiler reads targets up to
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>// the body's `{`, so the second line is still part of the list.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
+>pub @macro both(each $p: ident) : stmt in transformed parameters,
+#^^^ source.laplacelib storage.modifier.pub.laplace
+#   ^ source.laplacelib
+#    ^^^^^^ source.laplacelib keyword.other.directive.macro.laplace
+#          ^ source.laplacelib
+#           ^^^^ source.laplacelib entity.name.function.macro.laplace
+#               ^ source.laplacelib
+#                ^^^^ source.laplacelib keyword.other.each.laplace
+#                    ^ source.laplacelib
+#                     ^^ source.laplacelib variable.other.placeholder.laplace
+#                       ^ source.laplacelib punctuation.separator.type.laplace
+#                        ^ source.laplacelib
+#                         ^^^^^ source.laplacelib storage.type.placeholder-kind.laplace
+#                              ^^ source.laplacelib
+#                                ^ source.laplacelib punctuation.separator.type.laplace
+#                                 ^ source.laplacelib
+#                                  ^^^^ source.laplacelib storage.type.macro-kind.laplace
+#                                      ^ source.laplacelib
+#                                       ^^ source.laplacelib keyword.control.laplace
+#                                         ^ source.laplacelib
+#                                          ^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib keyword.control.block.laplace
+#                                                                ^ source.laplacelib punctuation.separator.block.laplace
+>    generated quantities {
+#^^^^ source.laplacelib
+#    ^^^^^^^^^^^^^^^^^^^^ source.laplacelib keyword.control.block.laplace
+#                        ^ source.laplacelib
+#                         ^^ source.laplacelib
+>  real ${p}_sq = square($p);
+#^^ source.laplacelib
+#  ^^^^ source.laplacelib storage.type.laplace
+#      ^ source.laplacelib
+#       ^^^^ source.laplacelib variable.other.placeholder.laplace
+#           ^^^^ source.laplacelib
+#               ^ source.laplacelib keyword.operator.laplace
+#                ^ source.laplacelib
+#                 ^^^^^^ source.laplacelib entity.name.function.laplace
+#                       ^ source.laplacelib
+#                        ^^ source.laplacelib variable.other.placeholder.laplace
+#                          ^^^ source.laplacelib
+>}
+#^^ source.laplacelib
+>
 >// --- regression: `in` in a `for` loop is not a block list ----------------
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >

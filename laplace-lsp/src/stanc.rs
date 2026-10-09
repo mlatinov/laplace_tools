@@ -24,11 +24,12 @@ use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Range as LspRange, Ur
 
 use laplace::codegen::{self, CodegenOptions, GeneratedStan, SourceMap};
 use laplace::parser::blocks::{find_top_level_blocks, BlockKind};
+use laplace::parser::laplacelib;
 use laplace::parser::library_block::{parse_library_block, LibraryBlock};
 use laplace::resolve::lockfile::Lockfile;
 use laplace::validate::{self, StancDiagnostic, StancSeverity};
 
-use crate::diagnostics::import_range;
+use crate::diagnostics::{import_range, SOURCE_NAME};
 use crate::dialect::Dialect;
 use crate::position::{line_starts, offset_to_position};
 use crate::workspace::{default_cache_root, find_lockfile, load_installed_package};
@@ -177,42 +178,41 @@ impl WrappedLibrary {
 /// `laplace::parser::laplacelib::parse` produces for a consumer, and a
 /// program `stanc` will accept on its own.
 ///
-/// Definitions are moved rather than copied in place, since a file may
-/// legally interleave them with its `library { }` block, and Stan allows
-/// only one `functions { }` block. `None` if the file contains a block the
-/// library dialect forbids -- there is no meaningful Stan program to build
-/// from it, and `diagnostics` reports that on its own.
+/// The definitions come from `laplacelib::parse` itself, so they are what
+/// a consumer of the library compiles: `functions { }` unwrapped, `pub`
+/// markers stripped, and `@template` / `@macro` definitions -- which are
+/// not Stan -- cut out. Higher-order functions and sized return types stay
+/// in, for `codegen` to specialize and strip as it does in any model.
+///
+/// `None` if the file does not parse as a library (a forbidden block, a
+/// malformed definition): there is no meaningful Stan program to build
+/// from it, and `diagnostics` reports why on its own.
 fn wrap_library_source(source: &str) -> Option<WrappedLibrary> {
-    let blocks = find_top_level_blocks(source);
-    if blocks
-        .iter()
-        .any(|b| !matches!(b.kind, BlockKind::Library | BlockKind::Functions))
-    {
-        return None;
-    }
+    let parsed = laplacelib::parse(Path::new(SOURCE_NAME), source).ok()?;
 
     let mut wrapped = WrappedLibrary {
         text: String::with_capacity(source.len() + 16),
         segments: Vec::new(),
     };
 
-    for block in blocks.iter().filter(|b| b.kind == BlockKind::Library) {
+    // Kept, though `parse` strips them from the body: `codegen` needs the
+    // imports to resolve this library's own `pkg::` calls.
+    for block in find_top_level_blocks(source)
+        .iter()
+        .filter(|b| b.kind == BlockKind::Library)
+    {
         wrapped.copy(source, block.byte_range.clone());
         wrapped.text.push('\n');
     }
 
     wrapped.text.push_str("functions {\n");
-    let mut cursor = 0usize;
-    for block in &blocks {
-        wrapped.copy(source, cursor..block.byte_range.start);
-        // A `functions { }` wrapper is unwrapped (its contents are kept, its
-        // bookends dropped); a `library { }` block was already emitted above.
-        if block.kind == BlockKind::Functions {
-            wrapped.copy(source, block.body_range.clone());
-        }
-        cursor = block.byte_range.end;
+    for segment in &parsed.segments {
+        let start = wrapped.text.len();
+        wrapped.text.push_str(&parsed.body[segment.range.clone()]);
+        wrapped
+            .segments
+            .push((start..wrapped.text.len(), segment.original_offset));
     }
-    wrapped.copy(source, cursor..source.len());
     wrapped.text.push_str("\n}\n");
 
     Some(wrapped)
@@ -603,5 +603,94 @@ Ill-formed statement.
         // Line 1 (0-indexed) of the original == `  return x`, not line 2.
         assert_eq!(d.range.start.line, 1);
         assert_eq!(d.range.start.character, 2);
+    }
+
+    // --- against a real `stanc`, when there is one -------------------------
+
+    /// Skips (passes with a note) when no `stanc` is installed: a missing
+    /// Stan toolchain is not a failure of the language server.
+    fn real_stanc() -> Option<&'static Path> {
+        let found = stanc_path();
+        if found.is_none() {
+            eprintln!("note: no `stanc` found -- skipping a real-stanc check");
+        }
+        found
+    }
+
+    /// Before the compiler understood `@use`, codegen failed on it and
+    /// `stanc` never ran, so a model using a template got no Stan-level
+    /// checking at all.
+    #[test]
+    fn a_model_using_a_template_is_still_checked_by_stanc() {
+        let Some(stanc) = real_stanc() else { return };
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("stats").join("1.0.0");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("laplace.toml"), "name = \"stats\"\nversion = \"1.0.0\"\n").unwrap();
+        fs::write(
+            dir.join("stats.laplacelib"),
+            "pub @template ncp($name: ident, $N: expr) {\n  parameters {\n    vector[$N] ${name}_raw;\n  }\n  model {\n    ${name}_raw ~ std_normal();\n  }\n}\n",
+        )
+        .unwrap();
+        let lock = Lockfile {
+            root: vec!["stats".to_string()],
+            packages: vec![LockedPackage {
+                name: "stats".to_string(),
+                version: "1.0.0".to_string(),
+                checksum: "sha256:whatever".to_string(),
+                source: "registry".to_string(),
+                dependencies: Vec::new(),
+            }],
+        };
+
+        let clean = "library {\n  import stats\n}\n\n@use stats::ncp(theta, K);\ndata {\n  int K;\n}\n";
+        assert!(compute_stanc_diagnostics(stanc, clean, Dialect::Laplace, &lock, tmp.path()).is_empty());
+
+        // Missing `;` on line 8, below the `@use`.
+        let broken = "library {\n  import stats\n}\n\n@use stats::ncp(theta, K);\ndata {\n  int K;\n  real x\n}\n";
+        let diags = compute_stanc_diagnostics(stanc, broken, Dialect::Laplace, &lock, tmp.path());
+        assert_eq!(diags.len(), 1, "{diags:?}");
+        assert!(diags[0].message.contains("Expected \";\""), "{}", diags[0].message);
+    }
+
+    /// A library is checked as the compiler emits it: no `pub`, no
+    /// template or macro definitions, HOFs specialized away. Before, the
+    /// raw text went to `stanc`, which stopped at the first `pub`.
+    #[test]
+    fn a_library_using_patch_1_is_checked_by_stanc_past_it() {
+        let Some(stanc) = real_stanc() else { return };
+        let tmp = tempfile::tempdir().unwrap();
+        let clean = "\
+pub @template t($n: ident) {
+  parameters {
+    real $n;
+  }
+}
+
+pub @macro m($p: ident) : stmt in model {
+  $p ~ std_normal();
+}
+
+pub real apply(vector x, func(real) -> real g) {
+  return g(x[1]);
+}
+
+vector[2] pair(real x) {
+  return [x, x]';
+}
+
+pub real h(real x) {
+  return x;
+}
+";
+        let diags = compute_stanc_diagnostics(stanc, clean, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert!(diags.is_empty(), "{diags:?}");
+
+        let broken = clean.replace("  return x;\n", "  return x\n");
+        let diags = compute_stanc_diagnostics(stanc, &broken, Dialect::Library, &Lockfile::default(), tmp.path());
+        assert_eq!(diags.len(), 1, "{diags:?}");
+        // `stanc` reports the line after the missing `;`: the closing brace
+        // of `h`, line 21 -- in the user's file, past every patch-1 line.
+        assert_eq!(diags[0].range.start.line, 20);
     }
 }

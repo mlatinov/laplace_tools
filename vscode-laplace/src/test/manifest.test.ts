@@ -39,21 +39,17 @@ test("every registered command is declared", () => {
   }
 });
 
-test("the status bar indicator points at a real command", () => {
-  const target = /item\.command = "([^"]+)"/.exec(source)?.[1];
-  assert.ok(target, "the status bar item has no command");
-  assert.ok(
-    commands.some((c) => c.command === target),
-    `the status bar item points at ${target}, which is not declared`,
-  );
-});
-
 test("the settings the commands toggle exist, and are booleans", () => {
-  for (const key of ["laplace.docs.renderMath", "laplace.diagnostics.unsupportedSyntax"]) {
+  const expected: Record<string, boolean> = {
+    "laplace.docs.renderMath": true,
+    // Optional: drawing symbols over someone's code is opt-in.
+    "laplace.symbols.enabled": false,
+  };
+  for (const [key, fallback] of Object.entries(expected)) {
     const setting = settings[key];
     assert.ok(setting, `${key} is not contributed, so it cannot be changed in the settings editor`);
     assert.equal(setting.type, "boolean", `${key} should be a boolean`);
-    assert.equal(setting.default, true, `${key} should default to true`);
+    assert.equal(setting.default, fallback, `${key} should default to ${fallback}`);
   }
 });
 
