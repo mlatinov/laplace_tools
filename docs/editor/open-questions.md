@@ -21,6 +21,29 @@ Options:
 language features" is out of scope here, and it is a highlighting-only fix.
 
 
+## Open (Phase 2)
+
+### Q7: Moving the laplace pin from the PR branch to `main`, then to `v0.3.0` (from Phase 2)
+
+`laplace-lsp` takes `laplace` and `laplace-sampler-syntax` from
+`github.com/mlatinov/laplace` at `rev = 1dd1b69`. That's the tip of
+`editor-api/syntax-crate`, [laplace PR #7](https://github.com/mlatinov/laplace/pull/7),
+which isn't merged yet.
+
+Steps, in order:
+
+1. Merge laplace PR #7.
+2. Change both `rev`s in `laplace-lsp/Cargo.toml` to the merge commit on
+   `main`.
+3. When the `v0.3.0` tag exists, use `tag = "v0.3.0"` instead.
+
+Step 2 is a one-line change plus `cargo update -p laplace -p
+laplace-sampler-syntax`. Phase 4's merge plan records the order.
+
+**Recommendation:** do step 2 as the first commit after PR #7 merges, and
+step 3 in Phase 4. Until then the pin is valid, because the branch is
+pushed. Don't delete that branch until the pin has moved.
+
 ## Answered
 
 ### Q1: Fix the pre-existing `laplace-lsp` breakage first (from Phase 0)
