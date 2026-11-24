@@ -28,6 +28,36 @@ It is a Phase 3-sized follow-up; it needs no change in the `laplace` repo
 beyond what the compiler crate already exposes. That last part is still to
 be confirmed.
 
+### Q9: What `kernel_index` scans when there is no `laplace.lock` (from Phase 3)
+
+`kernel_index` lists the local `.lapkernel` files under the project
+directory, up to 8 levels down. With no `laplace.lock` at or above the
+sampler, the "project" is the sampler's own directory. A sampler saved
+somewhere large without a lock is slow to index (measured, release build):
+
+| Sampler's directory | First build | Repeated build |
+|---|---|---|
+| a real project (`laplace add langevin --path …`) | 6 ms | 2 ms |
+| `laplace-sample/tests/targets` | 0.05 ms | 0.04 ms |
+| `~/Data_Science_Projects` (no lock) | 0.55 s | 0.19 s |
+| `~` (no lock) | 1.35 s | 0.30 s |
+
+The LSP reuses an index for 10 seconds and drops it when a `.lapkernel`
+is saved. Completion stays responsive, but the first request in such a
+directory is slow.
+
+Options (a `laplace`-repo change, in `laplace-sampler-syntax`):
+
+- **(a)** Without a lock, scan only the sampler's directory and its
+  `kernels/` subdirectory, not the whole tree.
+- **(b)** Keep the tree scan but stop after N directories or files.
+- **(c)** Leave it.
+
+**Recommendation: (a).** A sampler outside a project can still name kernels
+by path. Completion would offer only the nearby ones, but the files a
+project uses are found as now, because projects have a lock. It's a small
+change for the next `laplace` editor-API PR.
+
 ## Answered
 
 ### Q7: Moving the laplace pin from the PR branch to `main`, then to `v0.3.0` (from Phase 2)

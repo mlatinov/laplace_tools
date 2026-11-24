@@ -518,3 +518,48 @@ fn signature_help_in_a_sampler() {
     drop(child.stdin.take());
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn saving_a_kernel_refreshes_the_kernels_a_sampler_is_offered() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().canonicalize().unwrap();
+    let (mut child, mut out) = initialized();
+    let sampler = format!("file://{}/s.lapsampler", dir.display());
+    open(
+        &mut child,
+        &sampler,
+        "lapsampler",
+        "sampler s {\n  kernel {\n    rest : \n  }\n}\n",
+    );
+    let labels = |child: &mut Child, out: &mut BufReader<ChildStdout>, id: u64| -> Vec<String> {
+        let items = request(child, out, id, "textDocument/completion", &sampler, 2, 11);
+        items
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["label"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert!(!labels(&mut child, &mut out, 2).contains(&"./new.lapkernel".to_string()));
+
+    // A new kernel on disk is not seen while the index is cached...
+    let new = dir.join("new.lapkernel");
+    std::fs::write(&new, "kernel new {\n  step {\n    move(q);\n  }\n}\n").unwrap();
+    assert!(!labels(&mut child, &mut out, 3).contains(&"./new.lapkernel".to_string()));
+    // ...and is once a kernel is saved.
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didSave", "params": {
+               "textDocument": {"uri": format!("file://{}", new.display())}}}),
+    );
+    assert!(labels(&mut child, &mut out, 4).contains(&"./new.lapkernel".to_string()));
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    );
+    response(&mut out, 9);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}

@@ -197,8 +197,11 @@ impl LanguageServer for Backend {
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let uri = params.text_document.uri;
         // An open .lapsampler reads the kernels it names from disk, so
-        // saving a kernel re-checks every open sampler file.
+        // saving a kernel re-checks every open sampler file, and drops the
+        // cached kernel indexes (its tuning values or docs may have
+        // changed, or it is new).
         if Language::for_uri(&uri) == Some(Language::Kernel) {
+            index_cache().clear();
             let samplers: Vec<Url> = self
                 .documents
                 .iter()
@@ -426,16 +429,41 @@ fn package_prefix(prefix: &str) -> Option<String> {
     }
 }
 
-/// The kernel index for a `.lapsampler` (reads the disk, so off the async
-/// executor). `None` for a `.lapkernel`, which needs none.
-async fn sampler_index(uri: &Url, language: Language) -> Option<features::Index> {
+/// How long a kernel index is reused. Building one scans the project for
+/// `.lapkernel` files: milliseconds in a project, but up to a second for a
+/// sampler with no laplace.lock in a large directory (Q9), and completion
+/// asks on every keystroke.
+const INDEX_TTL: Duration = Duration::from_secs(10);
+
+type IndexCache = DashMap<std::path::PathBuf, (std::time::Instant, Arc<features::Index>)>;
+
+/// Kernel indexes by sampler directory. Cleared when a `.lapkernel` is
+/// saved, so a new or edited kernel shows at once.
+fn index_cache() -> &'static IndexCache {
+    static CACHE: std::sync::OnceLock<IndexCache> = std::sync::OnceLock::new();
+    CACHE.get_or_init(DashMap::new)
+}
+
+/// The kernel index for a `.lapsampler` (read from disk off the async
+/// executor, then reused for [`INDEX_TTL`]). `None` for a `.lapkernel`,
+/// which needs none.
+async fn sampler_index(uri: &Url, language: Language) -> Option<Arc<features::Index>> {
     if language != Language::Sampler {
         return None;
     }
     let path = uri.to_file_path().ok()?;
-    tokio::task::spawn_blocking(move || features::Index::for_document(&path))
+    let dir = path.parent()?.to_path_buf();
+    if let Some(entry) = index_cache().get(&dir) {
+        if entry.0.elapsed() < INDEX_TTL {
+            return Some(entry.1.clone());
+        }
+    }
+    let index = tokio::task::spawn_blocking(move || features::Index::for_document(&path))
         .await
-        .ok()
+        .ok()?;
+    let index = Arc::new(index);
+    index_cache().insert(dir, (std::time::Instant::now(), index.clone()));
+    Some(index)
 }
 
 /// A byte range of `text` as an LSP range.
@@ -455,7 +483,7 @@ async fn sampler_hover(
 ) -> Option<Hover> {
     let offset = position::position_to_offset(&text, position);
     let index = sampler_index(uri, language).await;
-    let (range, markdown) = features::hover(language, &text, offset, index.as_ref())?;
+    let (range, markdown) = features::hover(language, &text, offset, index.as_deref())?;
     Some(Hover {
         contents: HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,
@@ -473,7 +501,7 @@ async fn sampler_completion(
 ) -> Vec<CompletionItem> {
     let offset = position::position_to_offset(&text, position);
     let index = sampler_index(uri, language).await;
-    features::completion(language, &text, offset, index.as_ref())
+    features::completion(language, &text, offset, index.as_deref())
         .into_iter()
         .map(|item| CompletionItem {
             label: item.label.clone(),
