@@ -129,7 +129,10 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(vec![":".to_string()]),
+                    // `:` for `pkg::`. The rest are for sampler files only
+                    // (a setting after `(` or `,`, a path after `/`); a
+                    // .laplace request they trigger answers nothing.
+                    trigger_characters: Some([":", "(", ",", "/"].map(String::from).to_vec()),
                     resolve_provider: Some(false),
                     ..Default::default()
                 }),
@@ -214,13 +217,21 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
-        if Language::for_uri(&uri).is_some() {
-            return Ok(None);
-        }
         let position = params.text_document_position.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
+        if let Some(language) = Language::for_uri(&uri) {
+            let items = sampler_completion(&uri, language, text, position).await;
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+        let sampler_trigger = params
+            .context
+            .and_then(|c| c.trigger_character)
+            .is_some_and(|c| c != ":");
+        if sampler_trigger {
+            return Ok(None);
+        }
 
         let offset = position::position_to_offset(&text, position);
         let prefix = &text[..offset.min(text.len())];
@@ -432,4 +443,41 @@ async fn sampler_hover(
         }),
         range: Some(lsp_range(&text, range)),
     })
+}
+
+async fn sampler_completion(
+    uri: &Url,
+    language: Language,
+    text: String,
+    position: Position,
+) -> Vec<CompletionItem> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, language).await;
+    features::completion(language, &text, offset, index.as_ref())
+        .into_iter()
+        .map(|item| CompletionItem {
+            label: item.label.clone(),
+            kind: Some(match item.kind {
+                features::ItemKind::Value => CompletionItemKind::VARIABLE,
+                features::ItemKind::Function => CompletionItemKind::FUNCTION,
+                features::ItemKind::Keyword => CompletionItemKind::KEYWORD,
+                features::ItemKind::Setting => CompletionItemKind::PROPERTY,
+            }),
+            detail: item.detail,
+            documentation: item.documentation.map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+            sort_text: Some(item.sort),
+            filter_text: Some(item.label),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                range: lsp_range(&text, item.replace),
+                new_text: item.insert,
+            })),
+            ..Default::default()
+        })
+        .collect()
 }

@@ -11,8 +11,8 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use laplace_sampler_syntax::editor::{
-    builtins, combinators, kernel_index, Builtin, Combinator, KernelEntry, KernelOrigin,
-    KernelSetting, Project,
+    builtins, combinators, kernel_index, Builtin, BuiltinKind, Combinator, KernelEntry,
+    KernelOrigin, KernelSetting, Project,
 };
 
 use super::cursor::{self, Token, TokenKind};
@@ -183,6 +183,266 @@ fn setting_markdown(k: &KernelEntry, s: &KernelSetting) -> String {
     }
     md += &format!("\n\nA setting of `{}` ({}).", k.name, origin_text(k));
     md
+}
+
+// ---- completion --------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ItemKind {
+    /// A `.lapkernel` context value.
+    Value,
+    /// A `.lapkernel` function, or a `.lapsampler` kernel.
+    Function,
+    /// A terminal, a combinator, `block` or `rest`.
+    Keyword,
+    /// A setting inside a call.
+    Setting,
+}
+
+/// One completion: `insert` is a snippet that replaces `replace` (the word
+/// typed so far).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Item {
+    pub label: String,
+    pub kind: ItemKind,
+    pub detail: Option<String>,
+    /// Markdown.
+    pub documentation: Option<String>,
+    pub insert: String,
+    pub replace: Range<usize>,
+    /// Kernels first, then combinators.
+    pub sort: String,
+}
+
+/// Escape snippet syntax in literal text.
+fn literal(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('$', "\\$")
+        .replace('}', "\\}")
+}
+
+/// What to offer at `offset`. `index` is needed for a `.lapsampler` only.
+pub fn completion(
+    language: Language,
+    text: &str,
+    offset: usize,
+    index: Option<&Index>,
+) -> Vec<Item> {
+    if cursor::in_comment(text, offset) {
+        return vec![];
+    }
+    let masked = cursor::mask_comments(text);
+    let start = cursor::token_start(&masked, offset);
+    let replace = start..offset;
+    match language {
+        Language::Kernel => kernel_completion(&masked, offset, replace),
+        Language::Sampler => match index {
+            Some(index) => sampler_completion(&masked, offset, replace, index),
+            None => vec![],
+        },
+    }
+}
+
+/// Built-ins, in any block of the kernel: in `tuning { }` only those a
+/// tuning default may use.
+fn kernel_completion(masked: &str, offset: usize, replace: Range<usize>) -> Vec<Item> {
+    let typed = &masked[replace.clone()];
+    if !typed
+        .bytes()
+        .all(|c| c.is_ascii_alphanumeric() || c == b'_')
+    {
+        return vec![];
+    }
+    // Not a member: `x.1`.
+    if masked[..replace.start].ends_with('.') {
+        return vec![];
+    }
+    let sections = cursor::sections(masked, offset);
+    let Some(section) = sections.get(1) else {
+        return vec![];
+    };
+    builtins()
+        .into_iter()
+        .filter(|b| section != "tuning" || !b.needs_chain)
+        .map(|b| Item {
+            label: b.name.to_string(),
+            kind: match b.kind {
+                BuiltinKind::Value => ItemKind::Value,
+                BuiltinKind::Function => ItemKind::Function,
+                BuiltinKind::Terminal => ItemKind::Keyword,
+            },
+            detail: Some(b.signatures.join("  |  ")),
+            documentation: Some(builtin_markdown(&b)),
+            insert: match b.kind {
+                BuiltinKind::Value => b.name.to_string(),
+                _ => format!("{}($0)", b.name),
+            },
+            replace: replace.clone(),
+            sort: format!("0{}", b.name),
+        })
+        .collect()
+}
+
+fn sampler_completion(
+    masked: &str,
+    offset: usize,
+    replace: Range<usize>,
+    index: &Index,
+) -> Vec<Item> {
+    let sections = cursor::sections(masked, offset);
+    if sections.len() != 2 || sections[1] != "kernel" {
+        return vec![];
+    }
+    let line = cursor::kernel_line_start(masked, offset);
+    let Some(colon) = cursor::line_colon(masked, line, offset) else {
+        // The block side of `block(...) : kernel`. Parameter names need the
+        // model (open question Q8); only the line's first word is offered.
+        if masked[line..replace.start].trim().is_empty() {
+            return line_targets(replace);
+        }
+        return vec![];
+    };
+    let Some(call) = cursor::enclosing_call(masked, colon + 1, offset) else {
+        return kernel_items(index, replace);
+    };
+    let arg = &masked[call.arg_start..offset];
+    let has_colon = arg.contains(':') && !arg.contains("::");
+    let kernels = match call.callee.text.as_str() {
+        "seq" => true,
+        "mix" => has_colon,
+        "repeat" | "on" => call.arg >= 1,
+        "adapt" if call.arg == 0 => true,
+        "adapt" => {
+            if arg.contains('=') {
+                return vec![];
+            }
+            let given = cursor::named_args(masked, call.open, offset);
+            let adapt = combinator("adapt").expect("adapt is a combinator");
+            return adapt
+                .settings
+                .iter()
+                .filter(|s| !given.iter().any(|g| g == *s))
+                .map(|s| Item {
+                    label: s.to_string(),
+                    kind: ItemKind::Setting,
+                    detail: Some(format!("{s} = ... (adapt)")),
+                    documentation: Some(combinator_setting_markdown(adapt, s)),
+                    insert: format!("{s} = $0"),
+                    replace: replace.clone(),
+                    sort: format!("0{s}"),
+                })
+                .collect();
+        }
+        "block" => return vec![],
+        _ => {
+            if arg.contains('=') {
+                return vec![];
+            }
+            let Some(kernel) = index.find(&call.callee) else {
+                return vec![];
+            };
+            let given = cursor::named_args(masked, call.open, offset);
+            return kernel
+                .settings
+                .iter()
+                .filter(|s| !given.contains(&s.name))
+                .map(|s| setting_item(kernel, s, replace.clone()))
+                .collect();
+        }
+    };
+    if kernels {
+        kernel_items(index, replace)
+    } else {
+        vec![]
+    }
+}
+
+fn line_targets(replace: Range<usize>) -> Vec<Item> {
+    [
+        (
+            "block",
+            "block(${1:param}) : $0",
+            "a block of parameters and the kernel that updates it",
+        ),
+        (
+            "rest",
+            "rest : $0",
+            "every parameter no other line names; the last line",
+        ),
+    ]
+    .into_iter()
+    .map(|(label, insert, doc)| Item {
+        label: label.to_string(),
+        kind: ItemKind::Keyword,
+        detail: Some(doc.to_string()),
+        documentation: None,
+        insert: insert.to_string(),
+        replace: replace.clone(),
+        sort: format!("0{label}"),
+    })
+    .collect()
+}
+
+/// Every kernel, then the combinators a kernel line may contain.
+fn kernel_items(index: &Index, replace: Range<usize>) -> Vec<Item> {
+    let kernels = index.kernels.iter().map(|k| Item {
+        label: k.name.clone(),
+        kind: ItemKind::Function,
+        detail: Some(match (&k.error, &k.brief) {
+            (Some(_), _) => format!("{}: does not check", origin_text(k)),
+            (None, Some(b)) => format!("{}: {b}", origin_text(k)),
+            (None, None) => origin_text(k),
+        }),
+        documentation: Some(kernel_markdown(k)),
+        // A built-in needs its parentheses; the others take them only for
+        // tuning values.
+        insert: match k.origin {
+            KernelOrigin::BuiltIn => format!("{}($0)", k.name),
+            _ => literal(&k.name),
+        },
+        replace: replace.clone(),
+        sort: format!(
+            "{}{}",
+            match k.origin {
+                KernelOrigin::BuiltIn => 0,
+                KernelOrigin::Package { .. } => 1,
+                KernelOrigin::Local => 2,
+            },
+            k.name
+        ),
+    });
+    let combinators = combinators()
+        .iter()
+        .filter(|c| c.in_kernel_lines)
+        .map(|c| Item {
+            label: c.name.to_string(),
+            kind: ItemKind::Keyword,
+            detail: Some(c.signature.to_string()),
+            documentation: Some(combinator_markdown(c)),
+            insert: format!("{}($0)", c.name),
+            replace: replace.clone(),
+            sort: format!("3{}", c.name),
+        });
+    kernels.chain(combinators).collect()
+}
+
+fn setting_item(kernel: &KernelEntry, s: &KernelSetting, replace: Range<usize>) -> Item {
+    Item {
+        label: s.name.clone(),
+        kind: ItemKind::Setting,
+        detail: Some(match (&s.decl, &s.default) {
+            (Some(d), _) => d.clone(),
+            (None, Some(v)) => format!("{} = {v}", s.name),
+            (None, None) => s.name.clone(),
+        }),
+        documentation: Some(setting_markdown(kernel, s)),
+        insert: match &s.default {
+            Some(v) => format!("{} = ${{1:{}}}", s.name, literal(v)),
+            None => format!("{} = $0", s.name),
+        },
+        replace,
+        sort: format!("0{}", s.name),
+    }
 }
 
 #[cfg(test)]

@@ -35,6 +35,30 @@ pub fn mask_comments(text: &str) -> String {
     String::from_utf8(out).expect("comments are blanked whole")
 }
 
+/// Is `offset` inside a comment (or just after `//` on its line)?
+pub fn in_comment(text: &str, offset: usize) -> bool {
+    let b = text.as_bytes();
+    let mut i = 0;
+    while i < b.len() && i < offset {
+        if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
+            let end = text[i..].find('\n').map_or(b.len(), |e| i + e);
+            if offset <= end {
+                return true;
+            }
+            i = end;
+        } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
+            let end = text[i + 2..].find("*/").map_or(b.len(), |e| i + 2 + e + 2);
+            if offset < end {
+                return true;
+            }
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+    false
+}
+
 fn is_ident(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
 }
@@ -121,6 +145,58 @@ pub fn token_at(masked: &str, offset: usize) -> Option<Token> {
     })
 }
 
+/// Where the word being completed at `offset` starts: the token so far,
+/// including a half-typed `pkg:` (one colon, as it is while `::` is
+/// typed).
+pub fn token_start(masked: &str, offset: usize) -> usize {
+    let b = masked.as_bytes();
+    let mut start = offset.min(b.len());
+    while start > 0 && !ends_token(b, start - 1) {
+        start -= 1;
+    }
+    if start > 1 && b[start - 1] == b':' && is_ident(b[start - 2]) {
+        let mut pkg = start - 1;
+        while pkg > 0 && is_ident(b[pkg - 1]) {
+            pkg -= 1;
+        }
+        // A package name, not a mix() weight such as `1:`.
+        if b[pkg].is_ascii_alphabetic() || b[pkg] == b'_' {
+            start = pkg;
+        }
+    }
+    start
+}
+
+/// The section keyword of each `{ ... }` enclosing `offset`, outermost
+/// first: the first word before each unclosed `{` (`kernel` in `kernel
+/// mala {`, `step`, `if`, `sampler`, `library`, ...).
+pub fn sections(masked: &str, offset: usize) -> Vec<String> {
+    let b = masked.as_bytes();
+    let mut open: Vec<usize> = vec![];
+    for (i, c) in b.iter().enumerate().take(offset.min(b.len())) {
+        match c {
+            b'{' => open.push(i),
+            b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.iter()
+        .map(|&i| {
+            let mut start = i;
+            while start > 0 && !b"{};".contains(&b[start - 1]) {
+                start -= 1;
+            }
+            masked[start..i]
+                .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .find(|w| !w.is_empty())
+                .unwrap_or("")
+                .to_string()
+        })
+        .collect()
+}
+
 /// The innermost call whose `(` is open at `offset`, looking back no
 /// further than `from`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -195,11 +271,53 @@ pub fn kernel_line_start(masked: &str, offset: usize) -> usize {
     start
 }
 
+/// The single `:` (not `::`) at paren depth 0 in `masked[from..to]`, which
+/// separates a kernel line's block from its kernel.
+pub fn line_colon(masked: &str, from: usize, to: usize) -> Option<usize> {
+    let b = masked.as_bytes();
+    let mut depth = 0i64;
+    for i in from..to.min(b.len()) {
+        match b[i] {
+            b'(' => depth += 1,
+            b')' => depth -= 1,
+            _ if depth == 0 && is_single_colon(b, i) => return Some(i),
+            _ => {}
+        }
+    }
+    None
+}
+
 /// The next character after `offset` that is not whitespace.
 pub fn next_char(masked: &str, offset: usize) -> Option<char> {
     masked[offset.min(masked.len())..]
         .chars()
         .find(|c| !c.is_whitespace())
+}
+
+/// The setting names already given in a call's argument list
+/// (`name = ...`), up to `to`.
+pub fn named_args(masked: &str, open: usize, to: usize) -> Vec<String> {
+    let b = masked.as_bytes();
+    let mut names = vec![];
+    let mut depth = 0i64;
+    let mut i = open + 1;
+    let mut arg_start = i;
+    while i < to.min(b.len()) {
+        match b[i] {
+            b'(' => depth += 1,
+            b')' => depth -= 1,
+            b',' if depth == 0 => arg_start = i + 1,
+            b'=' if depth == 0 => {
+                let name = masked[arg_start..i].trim();
+                if !name.is_empty() && name.bytes().all(is_ident) {
+                    names.push(name.to_string());
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    names
 }
 
 #[cfg(test)]
@@ -254,6 +372,16 @@ mod tests {
     }
 
     #[test]
+    fn sections_name_each_open_brace() {
+        let (s, o) = at("kernel k {\n  step {\n    if (x) {\n      |\n    }\n  }\n}\n");
+        assert_eq!(sections(&mask_comments(&s), o), ["kernel", "step", "if"]);
+        let (s, o) = at("sampler s {\n  library { import a }\n  kernel {\n    rest : |\n  }\n}");
+        assert_eq!(sections(&mask_comments(&s), o), ["sampler", "kernel"]);
+        let (s, o) = at("kernel k {\n  // step {\n  tuning {\n  |");
+        assert_eq!(sections(&mask_comments(&s), o), ["kernel", "tuning"]);
+    }
+
+    #[test]
     fn the_enclosing_call_and_argument() {
         let call = |marked: &str| {
             let (s, o) = at(marked);
@@ -287,5 +415,52 @@ mod tests {
         let (s, o) = at("  kernel {\n    block(a) : rwm(); rest : |");
         let m = mask_comments(&s);
         assert_eq!(&m[kernel_line_start(&m, o)..o], " rest : ");
+    }
+    #[test]
+    fn kernel_lines_and_their_colon() {
+        let (s, o) = at("  kernel {\n    block(a) : seq(rwm(),\n      mala(|");
+        let m = mask_comments(&s);
+        let start = kernel_line_start(&m, o);
+        assert_eq!(&m[start..start + 9], "    block");
+        let colon = line_colon(&m, start, o).unwrap();
+        assert_eq!(&m[colon..colon + 2], ": ");
+        let (s, o) = at("  kernel {\n    block(a) |");
+        let m = mask_comments(&s);
+        assert_eq!(line_colon(&m, kernel_line_start(&m, o), o), None);
+        let (s, o) = at("  kernel {\n    rest : mix(1 : |");
+        let m = mask_comments(&s);
+        let start = kernel_line_start(&m, o);
+        assert_eq!(&m[line_colon(&m, start, o).unwrap()..][..6], ": mix(");
+    }
+
+    #[test]
+    fn named_arguments_already_given() {
+        let (s, o) = at("hmc(step_size = 1, jitter = false, |)");
+        let m = mask_comments(&s);
+        let c = enclosing_call(&m, 0, o).unwrap();
+        assert_eq!(named_args(&m, c.open, o), ["step_size", "jitter"]);
+    }
+    #[test]
+    fn the_word_being_completed() {
+        let start = |marked: &str| {
+            let (s, o) = at(marked);
+            s[token_start(&mask_comments(&s), o)..o].to_string()
+        };
+        assert_eq!(start("rest : langevin::ma|"), "langevin::ma");
+        assert_eq!(start("rest : langevin:|"), "langevin:");
+        assert_eq!(start("rest : ./ker|"), "./ker");
+        assert_eq!(start("rest : |"), "");
+        assert_eq!(start("mix(1:rw|"), "rw");
+        assert_eq!(start("mala(st|"), "st");
+    }
+    #[test]
+    fn inside_comments() {
+        let text = "a // b\nc /* d\ne */ f";
+        let inside = |needle: &str, k: usize| in_comment(text, text.find(needle).unwrap() + k);
+        assert!(!inside("a", 1));
+        assert!(inside("// b", 2) && inside("b", 1));
+        assert!(!inside("c", 1));
+        assert!(inside("d", 0) && inside("e */", 2));
+        assert!(!inside(" f", 1));
     }
 }

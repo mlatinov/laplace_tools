@@ -335,3 +335,56 @@ fn hover_in_kernel_and_sampler_files() {
     drop(child.stdin.take());
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn completion_in_a_sampler_and_new_triggers_ignored_in_laplace() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut child, mut out) = initialized();
+
+    let sampler = format!("file://{}/s.lapsampler", tmp.path().display());
+    open(
+        &mut child,
+        &sampler,
+        "lapsampler",
+        "sampler s {\n  kernel {\n    rest : hmc(steps = 3, \n  }\n}\n",
+    );
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/completion", "params": {
+               "textDocument": {"uri": sampler}, "position": {"line": 2, "character": 26},
+               "context": {"triggerKind": 2, "triggerCharacter": ","}}}),
+    );
+    let items = response(&mut out, 2)["result"].clone();
+    let labels: Vec<&str> = items
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["label"].as_str().unwrap())
+        .collect();
+    assert_eq!(labels, ["step_size", "jitter"]);
+    assert_eq!(items[1]["insertTextFormat"], 2);
+    assert_eq!(
+        items[1]["textEdit"],
+        json!({"range": {"start": {"line": 2, "character": 26}, "end": {"line": 2, "character": 26}},
+               "newText": "jitter = ${1:true}"})
+    );
+
+    let model = format!("file://{}/m.laplace", tmp.path().display());
+    open(&mut child, &model, "laplace", "model {\n  y ~ normal(\n}\n");
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 3, "method": "textDocument/completion", "params": {
+               "textDocument": {"uri": model}, "position": {"line": 1, "character": 13},
+               "context": {"triggerKind": 2, "triggerCharacter": "("}}}),
+    );
+    assert_eq!(response(&mut out, 3)["result"], Value::Null);
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    );
+    response(&mut out, 9);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}

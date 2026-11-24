@@ -242,3 +242,238 @@ fn sampler_hover_ignores_keywords_blocks_and_numbers() {
         );
     }
 }
+
+// ---- completion --------------------------------------------------------------
+
+fn labels(items: &[Item]) -> Vec<&str> {
+    items.iter().map(|i| i.label.as_str()).collect()
+}
+
+fn item<'a>(items: &'a [Item], label: &str) -> &'a Item {
+    items
+        .iter()
+        .find(|i| i.label == label)
+        .unwrap_or_else(|| panic!("no `{label}` in {:?}", labels(items)))
+}
+
+fn kernel_items_at(marked: &str) -> (String, Vec<Item>) {
+    let (src, o) = at(marked);
+    let items = completion(Language::Kernel, &src, o, None);
+    (src, items)
+}
+
+#[test]
+fn kernel_completion_in_a_step_offers_every_built_in() {
+    let (src, items) =
+        kernel_items_at("kernel k {\n  step {\n    vector[dim] z = std_n|\n  }\n}\n");
+    let names: Vec<&str> = laplace_sampler_syntax::editor::builtins()
+        .iter()
+        .map(|b| b.name)
+        .collect();
+    assert_eq!(labels(&items), names);
+    let rng = item(&items, "std_normal_rng");
+    assert_eq!(&src[rng.replace.clone()], "std_n");
+    assert_eq!(rng.insert, "std_normal_rng($0)");
+    assert_eq!(rng.kind, ItemKind::Function);
+    assert_eq!(
+        rng.detail.as_deref(),
+        Some("real std_normal_rng()  |  vector[n] std_normal_rng(int n)")
+    );
+    assert_eq!(item(&items, "q").insert, "q");
+    assert_eq!(item(&items, "q").kind, ItemKind::Value);
+    assert_eq!(item(&items, "propose").kind, ItemKind::Keyword);
+}
+
+#[test]
+fn kernel_completion_in_tuning_offers_only_what_a_default_may_use() {
+    let (_, items) = kernel_items_at("kernel k {\n  tuning {\n    real eps = |\n  }\n}\n");
+    let offered = labels(&items);
+    for allowed in ["dim", "rep_vector", "exp", "sqrt", "normal_lpdf"] {
+        assert!(offered.contains(&allowed), "{allowed}: {offered:?}");
+    }
+    for refused in [
+        "q",
+        "lp",
+        "grad",
+        "metric",
+        "log_density",
+        "std_normal_rng",
+        "propose",
+    ] {
+        assert!(!offered.contains(&refused), "{refused}: {offered:?}");
+    }
+}
+
+#[test]
+fn kernel_completion_offers_nothing_outside_blocks_in_comments_or_after_a_dot() {
+    for marked in [
+        "kernel |",
+        "kernel k {\n  |",
+        "kernel k {\n  step {\n    // q|\n  }\n}\n",
+        "kernel k {\n  step {\n    /* q| */\n  }\n}\n",
+        "kernel k {\n  step {\n    real x = t.|\n  }\n}\n",
+    ] {
+        assert_eq!(
+            labels(&kernel_items_at(marked).1),
+            Vec::<&str>::new(),
+            "{marked}"
+        );
+    }
+}
+
+/// A sampler whose one kernel line is `line` (with the cursor `|`).
+fn sampler_items_at(p: &TestProject, line: &str) -> (String, Vec<Item>) {
+    let (src, o) = at(&format!(
+        "sampler s {{\n  library {{ import langevin }}\n  kernel {{\n    {line}\n  }}\n}}\n"
+    ));
+    let items = completion(Language::Sampler, &src, o, Some(&p.index));
+    (src, items)
+}
+
+const KERNELS: [&str; 12] = [
+    "nuts",
+    "rwm",
+    "mala",
+    "hmc",
+    "langevin::barker",
+    "langevin::broken",
+    "langevin::mala",
+    "./kernels/mine.lapkernel",
+    "seq",
+    "mix",
+    "repeat",
+    "adapt",
+];
+
+#[test]
+fn sampler_completion_after_the_colon_offers_kernels_and_combinators() {
+    let p = project();
+    let (_, items) = sampler_items_at(&p, "rest : |");
+    assert_eq!(labels(&items), KERNELS);
+    assert_eq!(item(&items, "nuts").insert, "nuts($0)");
+    assert_eq!(item(&items, "langevin::mala").insert, "langevin::mala");
+    assert_eq!(
+        item(&items, "langevin::mala").detail.as_deref(),
+        Some(
+            "kernel package `langevin` 0.1.0: Metropolis-adjusted Langevin algorithm with a \
+             diagonal metric"
+        )
+    );
+    assert_eq!(
+        item(&items, "langevin::broken").detail.as_deref(),
+        Some("kernel package `langevin` 0.1.0: does not check")
+    );
+    assert_eq!(item(&items, "seq").insert, "seq($0)");
+    let sorted: Vec<&str> = {
+        let mut v: Vec<&Item> = items.iter().collect();
+        v.sort_by(|a, b| a.sort.cmp(&b.sort));
+        v.iter().map(|i| i.label.as_str()).collect()
+    };
+    assert_eq!(&sorted[..4], ["hmc", "mala", "nuts", "rwm"]);
+    assert_eq!(&sorted[8..], ["adapt", "mix", "repeat", "seq"]);
+}
+
+#[test]
+fn sampler_completion_replaces_the_word_typed_so_far() {
+    let p = project();
+    for (line, typed) in [
+        ("rest : langevin::m|", "langevin::m"),
+        ("rest : langevin:|", "langevin:"),
+        ("rest : ./ker|", "./ker"),
+        ("rest : seq(rw|", "rw"),
+    ] {
+        let (src, items) = sampler_items_at(&p, line);
+        assert_eq!(labels(&items), KERNELS, "{line}");
+        assert_eq!(&src[items[0].replace.clone()], typed, "{line}");
+    }
+}
+
+#[test]
+fn sampler_completion_inside_combinators() {
+    let p = project();
+    let offered = |line: &str| {
+        sampler_items_at(&p, line)
+            .1
+            .iter()
+            .map(|i| i.label.clone())
+            .collect::<Vec<_>>()
+    };
+    for line in [
+        "rest : seq(rwm(), |",
+        "rest : mix(1 : |",
+        "rest : mix(1 : rwm(), 2 : |",
+        "rest : repeat(3, |",
+        "rest : adapt(|",
+    ] {
+        assert_eq!(offered(line), KERNELS, "{line}");
+    }
+    for line in ["rest : mix(|", "rest : repeat(|", "rest : mix(1 : rwm(), |"] {
+        assert_eq!(offered(line), Vec::<String>::new(), "{line}");
+    }
+    assert_eq!(offered("rest : adapt(mala(), |"), ["target_accept"]);
+    assert_eq!(
+        offered("rest : adapt(mala(), target_accept = 0.6, |"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        offered("rest : adapt(mala(), target_accept = |"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn sampler_completion_offers_a_kernels_settings_with_their_defaults() {
+    let p = project();
+    let (_, items) = sampler_items_at(&p, "rest : langevin::mala(|");
+    assert_eq!(labels(&items), ["eps", "m"]);
+    assert_eq!(item(&items, "eps").insert, "eps = ${1:1}");
+    assert_eq!(
+        item(&items, "eps").detail.as_deref(),
+        Some("real<lower=0> eps = 1")
+    );
+    assert_eq!(item(&items, "m").insert, "m = ${1:rep_vector(1, dim)}");
+    assert_eq!(item(&items, "eps").kind, ItemKind::Setting);
+
+    let (_, items) = sampler_items_at(&p, "rest : ./kernels/mine.lapkernel(eps = 0.1, |");
+    assert_eq!(labels(&items), ["m"]);
+    let (_, items) = sampler_items_at(&p, "rest : hmc(steps = 3, |");
+    assert_eq!(labels(&items), ["step_size", "jitter"]);
+    assert_eq!(item(&items, "jitter").insert, "jitter = ${1:true}");
+    let (_, items) = sampler_items_at(&p, "rest : mala(st|");
+    assert_eq!(labels(&items), ["step_size"]);
+    let (_, items) = sampler_items_at(&p, "rest : mala(step_size = |");
+    assert_eq!(labels(&items), Vec::<&str>::new());
+}
+
+#[test]
+fn sampler_completion_at_the_start_of_a_line_offers_block_and_rest() {
+    let p = project();
+    let (src, items) = sampler_items_at(&p, "bl|");
+    assert_eq!(labels(&items), ["block", "rest"]);
+    assert_eq!(&src[items[0].replace.clone()], "bl");
+    assert_eq!(items[0].insert, "block(${1:param}) : $0");
+    assert_eq!(items[1].insert, "rest : $0");
+    // Parameter names need the model (Q8).
+    for line in ["block(|", "block(a, |", "block(a) as |"] {
+        assert_eq!(
+            labels(&sampler_items_at(&p, line).1),
+            Vec::<&str>::new(),
+            "{line}"
+        );
+    }
+}
+
+#[test]
+fn sampler_completion_offers_nothing_outside_kernel_lines() {
+    let p = project();
+    for marked in [
+        "sampler s {\n  warmup { iterations = | }\n}\n",
+        "sampler s {\n  library { import | }\n}\n",
+        "sampler s {\n  |\n}\n",
+        "sampler s {\n  kernel {\n    rest : nuts() // |\n  }\n}\n",
+    ] {
+        let (src, o) = at(marked);
+        let items = completion(Language::Sampler, &src, o, Some(&p.index));
+        assert_eq!(labels(&items), Vec::<&str>::new(), "{marked}");
+    }
+}
