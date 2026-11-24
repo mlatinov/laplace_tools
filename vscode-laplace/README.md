@@ -26,6 +26,8 @@ for `.laplace` files — a source-to-source preprocessor for
   for the active theme.
 - **Laplace patch-1 syntax** — highlighting, snippets and diagnostics; see
   below.
+- **Sampler files** (`.lapkernel`, `.lapsampler`): highlighting, snippets
+  and live diagnostics; see below.
 - **Math symbols (optional, off by default)** — show `sigma_obs` as σ with a
   subscript, `sum(x)` as ∑(x), `<=` as ≤, and type them LaTeX-style with
   `\sigma_{obs}`. Display only; see below.
@@ -73,6 +75,27 @@ laplace-level checks above run.
 | `macro` | `.laplacelib` | a `@macro` skeleton with `each` and `: stmt in model` |
 | `use` | `.laplace` | `@use pkg::name(...);` |
 | `expand` | `.laplace` | `@expand pkg::name([...], ...);` |
+
+## Sampler files
+
+`.lapkernel` (a custom kernel) and `.lapsampler` (which kernel updates which
+parameters) are checked as you type, by the same code as
+`laplace sampler check`, built into `laplace-lsp`.
+
+- **Kernels**: syntax, types and sizes, unknown names and functions,
+  `@adapt` tags, and the rule that every step ends in exactly one
+  `propose()` / `move()`.
+- **Samplers**: syntax, run settings, built-in kernels and their settings,
+  local kernel files (read from disk and checked), library kernels
+  (`import` is resolved in the project's `laplace.lock`, the nearest one
+  above the file, and in `~/.laplace/packages`), and `adapt()`.
+- A kernel file named by a sampler that does not check is reported on its
+  path, with each of its own errors linked. Saving a kernel re-checks the
+  open sampler files.
+
+Block coverage (every model parameter in exactly one block) needs the
+model, so the editor does not check it. Run
+`laplace sampler check <file>.lapsampler --model <model>.laplace` for that.
 
 ## Math symbols
 

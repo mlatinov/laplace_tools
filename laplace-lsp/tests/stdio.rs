@@ -124,3 +124,89 @@ fn waits_for_input_instead_of_answering_nothing() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "");
     assert_eq!(String::from_utf8_lossy(&out.stderr), "");
 }
+
+/// The next `textDocument/publishDiagnostics` for `uri`.
+fn diagnostics_for(out: &mut BufReader<ChildStdout>, uri: &str) -> Vec<Value> {
+    loop {
+        let m = recv(out);
+        if m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == uri {
+            return m["params"]["diagnostics"].as_array().unwrap().clone();
+        }
+    }
+}
+
+#[test]
+fn a_lapkernel_gets_diagnostics_as_it_is_opened_edited_and_closed() {
+    let mut child = server();
+    let mut out = BufReader::new(child.stdout.take().unwrap());
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+               "params": {"processId": null, "rootUri": null, "capabilities": {}}}),
+    );
+    response(&mut out, 1);
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+    );
+
+    let uri = "file:///nowhere/k.lapkernel";
+    let good = "kernel k {\n  step {\n    move(q);\n  }\n}\n";
+    let bad = "kernel k {\n  step {\n    move(nope);\n  }\n}\n";
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument":
+               {"uri": uri, "languageId": "lapkernel", "version": 1, "text": bad}}}),
+    );
+    let ds = diagnostics_for(&mut out, uri);
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    assert_eq!(ds[0]["message"], "unknown name `nope`");
+    assert_eq!(ds[0]["source"], "laplace sampler");
+    assert_eq!(ds[0]["severity"], 1);
+    assert_eq!(
+        ds[0]["range"],
+        json!({"start": {"line": 2, "character": 9}, "end": {"line": 2, "character": 13}})
+    );
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+               "textDocument": {"uri": uri, "version": 2}, "contentChanges": [{"text": good}]}}),
+    );
+    assert_eq!(diagnostics_for(&mut out, uri), Vec::<Value>::new());
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+               "textDocument": {"uri": uri, "version": 3}, "contentChanges": [{"text": bad}]}}),
+    );
+    assert_eq!(diagnostics_for(&mut out, uri).len(), 1);
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didClose", "params": {
+               "textDocument": {"uri": uri}}}),
+    );
+    assert_eq!(diagnostics_for(&mut out, uri), Vec::<Value>::new());
+
+    // No .laplace features answer for a kernel: no semantic tokens.
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument":
+               {"uri": uri, "languageId": "lapkernel", "version": 4, "text": good}}}),
+    );
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/semanticTokens/full",
+               "params": {"textDocument": {"uri": uri}}}),
+    );
+    assert_eq!(response(&mut out, 2)["result"], Value::Null);
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 3, "method": "shutdown"}),
+    );
+    response(&mut out, 3);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}

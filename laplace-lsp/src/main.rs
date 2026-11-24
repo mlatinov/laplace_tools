@@ -6,6 +6,7 @@ mod diagnostics;
 mod dialect;
 mod hover;
 mod position;
+mod sampler;
 mod stanc;
 mod workspace;
 

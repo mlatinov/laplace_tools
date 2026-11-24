@@ -21,7 +21,9 @@
   ],
   "activationEvents": [
     "onLanguage:laplace",
-    "onLanguage:laplacelib"
+    "onLanguage:laplacelib",
+    "onLanguage:lapkernel",
+    "onLanguage:lapsampler"
   ],
   "main": "./out/extension.js",
   "contributes": {

@@ -10,6 +10,7 @@ import {
 import { hasMathFence, renderMathFences } from "./docs";
 import { clearCache, renderMath, Theme } from "./math";
 import { activateSymbols, SYMBOLS_SETTING } from "./symbolsEditor";
+import { SERVER_LANGUAGES } from "./languages";
 
 let client: LanguageClient | undefined;
 
@@ -81,10 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      { scheme: "file", language: "laplace" },
-      { scheme: "file", language: "laplacelib" },
-    ],
+    documentSelector: SERVER_LANGUAGES.map((language) => ({ scheme: "file", language })),
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher("**/laplace.{toml,lock}"),
     },

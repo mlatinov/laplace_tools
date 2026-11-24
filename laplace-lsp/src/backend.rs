@@ -1,7 +1,8 @@
 //! The `tower-lsp` `LanguageServer` implementation: document store,
 //! debounced diagnostics, semantic tokens, completion, hover, and
 //! go-to-definition, all built on top of `analysis`/`diagnostics`/
-//! `completion`/`workspace`.
+//! `completion`/`workspace`. `.lapkernel` and `.lapsampler` documents get
+//! diagnostics only (`sampler`); the other requests answer nothing for them.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -19,12 +20,18 @@ use crate::diagnostics;
 use crate::dialect::Dialect;
 use crate::hover;
 use crate::position;
+use crate::sampler::{self, Language};
 use crate::stanc;
 use crate::workspace;
 
 /// How long to wait after the last edit before running diagnostics, so a
 /// fast typist doesn't trigger a full codegen pass per keystroke.
 const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(350);
+
+/// The same for `.lapkernel`/`.lapsampler`: their check is a parse and a
+/// type check in process, with no codegen and no `stanc`, so it can run
+/// sooner.
+const SAMPLER_DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(200);
 
 pub struct Backend {
     client: Client,
@@ -51,6 +58,34 @@ impl Backend {
 
         let client = self.client.clone();
         let documents = self.documents.clone();
+
+        if let Some(language) = Language::for_uri(&uri) {
+            tokio::spawn(async move {
+                tokio::time::sleep(SAMPLER_DIAGNOSTICS_DEBOUNCE).await;
+                if generation.load(Ordering::SeqCst) != my_generation {
+                    return;
+                }
+                let Some(text) = documents.get(&uri).map(|entry| entry.clone()) else {
+                    return;
+                };
+                let Ok(path) = uri.to_file_path() else {
+                    return;
+                };
+                // Reads kernel files and laplace.lock from disk.
+                let Ok(diags) = tokio::task::spawn_blocking(move || {
+                    sampler::diagnostics(language, &path, &text)
+                })
+                .await
+                else {
+                    return;
+                };
+                if generation.load(Ordering::SeqCst) != my_generation {
+                    return;
+                }
+                client.publish_diagnostics(uri, diags, None).await;
+            });
+            return;
+        }
 
         tokio::spawn(async move {
             tokio::time::sleep(DIAGNOSTICS_DEBOUNCE).await;
@@ -151,7 +186,23 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        self.schedule_diagnostics(params.text_document.uri);
+        let uri = params.text_document.uri;
+        // An open .lapsampler reads the kernels it names from disk, so
+        // saving a kernel re-checks every open sampler file.
+        if Language::for_uri(&uri) == Some(Language::Kernel) {
+            let samplers: Vec<Url> = self
+                .documents
+                .iter()
+                .map(|entry| entry.key().clone())
+                .filter(|u| *u != uri && Language::for_uri(u) == Some(Language::Sampler))
+                .collect();
+            for sampler_uri in samplers {
+                self.schedule_diagnostics(sampler_uri);
+            }
+        }
+        if self.documents.contains_key(&uri) {
+            self.schedule_diagnostics(uri);
+        }
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
@@ -163,6 +214,9 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let uri = params.text_document_position.text_document.uri;
+        if Language::for_uri(&uri).is_some() {
+            return Ok(None);
+        }
         let position = params.text_document_position.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
@@ -192,6 +246,9 @@ impl LanguageServer for Backend {
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
         let uri = params.text_document_position_params.text_document.uri;
+        if Language::for_uri(&uri).is_some() {
+            return Ok(None);
+        }
         let position = params.text_document_position_params.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
@@ -233,6 +290,9 @@ impl LanguageServer for Backend {
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
         let uri = params.text_document_position_params.text_document.uri;
+        if Language::for_uri(&uri).is_some() {
+            return Ok(None);
+        }
         let position = params.text_document_position_params.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
@@ -297,6 +357,9 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri;
+        if Language::for_uri(&uri).is_some() {
+            return Ok(None);
+        }
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };

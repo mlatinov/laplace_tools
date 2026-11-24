@@ -7,6 +7,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { SERVER_LANGUAGES } from "../languages";
+
 const root = join(__dirname, "..", "..");
 const read = (p: string) => JSON.parse(readFileSync(join(root, p), "utf8"));
 
@@ -140,3 +142,16 @@ for (const id of ["lapkernel", "lapsampler"]) {
     }
   });
 }
+
+test("the server gets every contributed language, and each activates the extension", () => {
+  const manifest = read("package.json") as {
+    activationEvents: string[];
+    contributes: { languages: Language[] };
+  };
+  const contributed = manifest.contributes.languages.map((l) => l.id).sort();
+  assert.deepEqual([...SERVER_LANGUAGES].sort(), contributed);
+  assert.deepEqual(
+    manifest.activationEvents.sort(),
+    SERVER_LANGUAGES.map((id) => `onLanguage:${id}`).sort(),
+  );
+});
