@@ -26,9 +26,9 @@ for `.laplace` files — a source-to-source preprocessor for
   for the active theme.
 - **Laplace patch-1 syntax** — highlighting, snippets and diagnostics; see
   below.
-- **Sampler files** (`.lapkernel`, `.lapsampler`): highlighting, snippets,
-  live diagnostics, hover, completion, go-to-definition and signature help;
-  see below.
+- **Sampler files** (`.lapkernel`, `.lapsampler`), **experimental**:
+  highlighting, snippets, live diagnostics, hover, completion,
+  go-to-definition and signature help; see below.
 - **Math symbols (optional, off by default)** — show `sigma_obs` as σ with a
   subscript, `sum(x)` as ∑(x), `<=` as ≤, and type them LaTeX-style with
   `\sigma_{obs}`. Display only; see below.
@@ -77,7 +77,12 @@ laplace-level checks above run.
 | `use` | `.laplace` | `@use pkg::name(...);` |
 | `expand` | `.laplace` | `@expand pkg::name([...], ...);` |
 
-## Sampler files
+## Sampler files (experimental)
+
+> Custom samplers are experimental in `laplace` 0.3.0, and so is their
+> editor support: the file formats and these features may change in a minor
+> release. They need `laplace-lsp` 0.2.0 or later. An older server leaves
+> sampler files with highlighting and snippets only.
 
 `.lapkernel` (a custom kernel) and `.lapsampler` (which kernel updates which
 parameters) are checked as you type, by the same code as
@@ -222,10 +227,15 @@ This is an early release. Not yet supported:
   macro names are not completed after `@use pkg::` / `@expand pkg::`, and
   `@use` / `@expand` do not jump to the definition. Diagnostics are
   complete; navigation is not there yet.
-- `//@math` rendering in completion documentation and signature help.
-  `laplace-lsp` puts only a function's `@brief` in a completion item and
-  has no signature-help provider, so the hover is currently the only place
-  a formula can appear.
+- `//@math` rendering in completion documentation. `laplace-lsp` puts only
+  a function's `@brief` in a completion item, so the hover is currently the
+  only place a formula can appear.
+- Signature help for `.laplace` calls. Signature help exists only in
+  `.lapsampler` files (combinators and kernel calls).
+- Sampler files: block coverage (every model parameter in exactly one
+  block) is checked by `laplace sampler check --model`, not the editor.
+  Parameter names in `block(...)` come from a guessed model; see
+  [Sampler files](#sampler-files-experimental).
 
 ## Developing
 

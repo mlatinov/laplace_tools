@@ -1,8 +1,8 @@
 [package]
 name = "laplace-lsp"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Language server for .laplace files (semantic tokens, completion, diagnostics) and .lapkernel/.lapsampler files (diagnostics)"
+description = "Language server for .laplace files (semantic tokens, completion, diagnostics) and .lapkernel/.lapsampler files (diagnostics, hover, completion, go-to-definition, signature help)"
 
 [dependencies]
 # The compiler's library and the sampler-file checker, both from the laplace
