@@ -2,6 +2,10 @@
 
 ## Open
 
+None.
+
+## Answered
+
 ### Q8: Completing parameter names inside `block(...)` (from Phase 3)
 
 Inside `block(...)`, the names to offer are the model's parameters. A
@@ -27,6 +31,12 @@ the wrong file.** Both are editor-only and add no syntax to the language.
 It is a Phase 3-sized follow-up; it needs no change in the `laplace` repo
 beyond what the compiler crate already exposes. That last part is still to
 be confirmed.
+
+**Answered 2026-11-24: as recommended, (a) with (b) as the override.**
+Built in Phase 4 (step 4.2), in the LSP only. Confirmed: the compiler
+crate's `find_top_level_blocks` and `declarations` are enough, so no
+`laplace` change is needed. Names that a template, macro or package call
+adds to `parameters { }` aren't written there, so they aren't offered.
 
 ### Q9: What `kernel_index` scans when there is no `laplace.lock` (from Phase 3)
 
@@ -58,7 +68,11 @@ by path. Completion would offer only the nearby ones, but the files a
 project uses are found as now, because projects have a lock. It's a small
 change for the next `laplace` editor-API PR.
 
-## Answered
+**Answered 2026-11-24: (a).** Built in laplace `05920aa`, on
+`editor-api/symbols` (PR #8). Without a lock, an index of `~` takes
+0.25 ms, down from 1.35 s. The LSP pin moved to it in Phase 4 (step 4.1).
+The 10 s cache in the LSP stays: in a large project it still saves the
+rescan on every keystroke.
 
 ### Q7: Moving the laplace pin from the PR branch to `main`, then to `v0.3.0` (from Phase 2)
 
