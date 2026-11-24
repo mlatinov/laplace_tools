@@ -258,7 +258,7 @@ fn item<'a>(items: &'a [Item], label: &str) -> &'a Item {
 
 fn kernel_items_at(marked: &str) -> (String, Vec<Item>) {
     let (src, o) = at(marked);
-    let items = completion(Language::Kernel, &src, o, None);
+    let items = completion(Language::Kernel, &src, o, None, None);
     (src, items)
 }
 
@@ -326,7 +326,7 @@ fn sampler_items_at(p: &TestProject, line: &str) -> (String, Vec<Item>) {
     let (src, o) = at(&format!(
         "sampler s {{\n  library {{ import langevin }}\n  kernel {{\n    {line}\n  }}\n}}\n"
     ));
-    let items = completion(Language::Sampler, &src, o, Some(&p.index));
+    let items = completion(Language::Sampler, &src, o, Some(&p.index), None);
     (src, items)
 }
 
@@ -473,7 +473,7 @@ fn sampler_completion_offers_nothing_outside_kernel_lines() {
         "sampler s {\n  kernel {\n    rest : nuts() // |\n  }\n}\n",
     ] {
         let (src, o) = at(marked);
-        let items = completion(Language::Sampler, &src, o, Some(&p.index));
+        let items = completion(Language::Sampler, &src, o, Some(&p.index), None);
         assert_eq!(labels(&items), Vec::<&str>::new(), "{marked}");
     }
 }
@@ -662,4 +662,78 @@ fn no_signature_help_outside_calls_on_blocks_or_broken_kernels() {
     ] {
         assert_eq!(signature_at(&p, line), None, "{line}");
     }
+}
+
+// ---- model parameters in block(...) (Q8) ---------------------------------------
+
+fn model() -> crate::sampler::model::Model {
+    crate::sampler::model::Model {
+        file: PathBuf::from("/p/eight_schools.laplace"),
+        parameters: crate::sampler::model::parameters(
+            "parameters {\n  real mu;\n  real<lower=0> tau;\n  vector[J] theta;\n}\n",
+        ),
+    }
+}
+
+fn block_items_at(p: &TestProject, lines: &str) -> (String, Vec<Item>) {
+    let (src, o) = at(&format!("sampler s {{\n  kernel {{\n{lines}\n  }}\n}}\n"));
+    let items = completion(Language::Sampler, &src, o, Some(&p.index), Some(&model()));
+    (src, items)
+}
+
+#[test]
+fn block_offers_the_models_parameters() {
+    let p = project();
+    let (src, items) = block_items_at(&p, "    block(t|");
+    assert_eq!(labels(&items), ["mu", "tau", "theta"]);
+    assert_eq!(&src[items[1].replace.clone()], "t");
+    assert_eq!(items[1].insert, "tau");
+    assert_eq!(items[1].kind, ItemKind::Parameter);
+    assert_eq!(
+        items[1].detail.as_deref(),
+        Some("real<lower=0> tau  (eight_schools.laplace)")
+    );
+}
+
+#[test]
+fn block_leaves_out_parameters_another_block_names() {
+    let p = project();
+    let (_, items) = block_items_at(&p, "    block(mu) : nuts()\n    block(tau, |");
+    assert_eq!(labels(&items), ["theta"]);
+    let (_, items) = block_items_at(&p, "    block(theta, mu|) : rwm()");
+    assert_eq!(
+        labels(&items),
+        ["mu", "tau"],
+        "the word being typed still matches"
+    );
+    // A comment naming a parameter doesn't count.
+    let (_, items) = block_items_at(&p, "    // block(mu)\n    block(|");
+    assert_eq!(labels(&items), ["mu", "tau", "theta"]);
+}
+
+#[test]
+fn no_parameters_outside_block_or_without_a_model() {
+    let p = project();
+    for lines in [
+        "    block(a) as |",
+        "    rest : seq(|",
+        "    block(a) : nuts(|",
+    ] {
+        let names = labels(&block_items_at(&p, lines).1)
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        assert!(!names.iter().any(|n| n == "mu"), "{lines}: {names:?}");
+    }
+    let (src, o) = at("sampler s {\n  kernel {\n    block(|\n  }\n}\n");
+    assert_eq!(
+        labels(&completion(
+            Language::Sampler,
+            &src,
+            o,
+            Some(&p.index),
+            None
+        )),
+        Vec::<&str>::new()
+    );
 }

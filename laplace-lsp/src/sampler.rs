@@ -33,6 +33,7 @@ use crate::workspace;
 
 pub mod cursor;
 pub mod features;
+pub mod model;
 
 /// The `source` shown with each diagnostic.
 pub const SOURCE: &str = "laplace sampler";

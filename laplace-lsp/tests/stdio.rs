@@ -563,3 +563,43 @@ fn saving_a_kernel_refreshes_the_kernels_a_sampler_is_offered() {
     drop(child.stdin.take());
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn block_completes_the_sibling_models_parameters() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().canonicalize().unwrap();
+    std::fs::write(
+        dir.join("s.laplace"),
+        "data {\n  int J;\n}\nparameters {\n  real mu;\n  vector[J] theta;\n}\nmodel {\n}\n",
+    )
+    .unwrap();
+    let (mut child, mut out) = initialized();
+    let sampler = format!("file://{}/s.lapsampler", dir.display());
+    open(
+        &mut child,
+        &sampler,
+        "lapsampler",
+        "sampler s {\n  kernel {\n    block(mu) : nuts()\n    block(\n  }\n}\n",
+    );
+    let items = request(
+        &mut child,
+        &mut out,
+        2,
+        "textDocument/completion",
+        &sampler,
+        3,
+        10,
+    );
+    assert_eq!(items[0]["label"], "theta");
+    assert_eq!(items[0]["detail"], "vector[J] theta  (s.laplace)");
+    assert_eq!(items.as_array().unwrap().len(), 1);
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    );
+    response(&mut out, 9);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}

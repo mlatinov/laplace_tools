@@ -20,7 +20,7 @@ use crate::diagnostics;
 use crate::dialect::Dialect;
 use crate::hover;
 use crate::position;
-use crate::sampler::{self, features, Language};
+use crate::sampler::{self, features, model, Language};
 use crate::stanc;
 use crate::workspace;
 
@@ -501,7 +501,18 @@ async fn sampler_completion(
 ) -> Vec<CompletionItem> {
     let offset = position::position_to_offset(&text, position);
     let index = sampler_index(uri, language).await;
-    features::completion(language, &text, offset, index.as_deref())
+    // The model, for parameter names in block(...): one small file read.
+    let model = match (language, uri.to_file_path()) {
+        (Language::Sampler, Ok(path)) => {
+            let text = text.clone();
+            tokio::task::spawn_blocking(move || model::load(&path, &text))
+                .await
+                .ok()
+                .flatten()
+        }
+        _ => None,
+    };
+    features::completion(language, &text, offset, index.as_deref(), model.as_ref())
         .into_iter()
         .map(|item| CompletionItem {
             label: item.label.clone(),
@@ -510,6 +521,7 @@ async fn sampler_completion(
                 features::ItemKind::Function => CompletionItemKind::FUNCTION,
                 features::ItemKind::Keyword => CompletionItemKind::KEYWORD,
                 features::ItemKind::Setting => CompletionItemKind::PROPERTY,
+                features::ItemKind::Parameter => CompletionItemKind::FIELD,
             }),
             detail: item.detail,
             documentation: item.documentation.map(|value| {

@@ -18,6 +18,7 @@ use laplace_sampler_syntax::editor::{
 use laplace_sampler_syntax::builtin_kernels::BuiltIn;
 
 use super::cursor::{self, Token, TokenKind};
+use super::model::Model;
 use super::{project_for, Language};
 
 /// The kernels a `.lapsampler` can name, and its directory (local kernel
@@ -199,6 +200,8 @@ pub enum ItemKind {
     Keyword,
     /// A setting inside a call.
     Setting,
+    /// A model parameter inside `block(...)`.
+    Parameter,
 }
 
 /// One completion: `insert` is a snippet that replaces `replace` (the word
@@ -229,6 +232,7 @@ pub fn completion(
     text: &str,
     offset: usize,
     index: Option<&Index>,
+    model: Option<&Model>,
 ) -> Vec<Item> {
     if cursor::in_comment(text, offset) {
         return vec![];
@@ -239,7 +243,7 @@ pub fn completion(
     match language {
         Language::Kernel => kernel_completion(&masked, offset, replace),
         Language::Sampler => match index {
-            Some(index) => sampler_completion(&masked, offset, replace, index),
+            Some(index) => sampler_completion(&masked, offset, replace, index, model),
             None => vec![],
         },
     }
@@ -290,6 +294,7 @@ fn sampler_completion(
     offset: usize,
     replace: Range<usize>,
     index: &Index,
+    model: Option<&Model>,
 ) -> Vec<Item> {
     let sections = cursor::sections(masked, offset);
     if sections.len() != 2 || sections[1] != "kernel" {
@@ -297,12 +302,17 @@ fn sampler_completion(
     }
     let line = cursor::kernel_line_start(masked, offset);
     let Some(colon) = cursor::line_colon(masked, line, offset) else {
-        // The block side of `block(...) : kernel`. Parameter names need the
-        // model (open question Q8); only the line's first word is offered.
+        // The block side of `block(...) : kernel`: the line's first word,
+        // or inside `block(...)` the model's parameters (Q8).
         if masked[line..replace.start].trim().is_empty() {
             return line_targets(replace);
         }
-        return vec![];
+        return match (cursor::enclosing_call(masked, line, offset), model) {
+            (Some(call), Some(model)) if call.callee.text == "block" => {
+                parameter_items(masked, model, replace)
+            }
+            _ => vec![],
+        };
     };
     let Some(call) = cursor::enclosing_call(masked, colon + 1, offset) else {
         return kernel_items(index, replace);
@@ -357,6 +367,62 @@ fn sampler_completion(
     } else {
         vec![]
     }
+}
+
+/// The model's parameters, except those any `block(...)` in the sampler
+/// already names: each parameter belongs to exactly one block.
+fn parameter_items(masked: &str, model: &Model, replace: Range<usize>) -> Vec<Item> {
+    let named = block_names(masked, replace.clone());
+    let file = model
+        .file
+        .file_name()
+        .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+    model
+        .parameters
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| !named.contains(&p.name))
+        .map(|(i, p)| Item {
+            label: p.name.clone(),
+            kind: ItemKind::Parameter,
+            detail: Some(format!("{}  ({file})", p.decl)),
+            documentation: None,
+            insert: literal(&p.name),
+            replace: replace.clone(),
+            sort: format!("{i:04}"),
+        })
+        .collect()
+}
+
+/// Every name inside a `block(...)` in `masked`, except at `except` (the
+/// word being typed).
+fn block_names(masked: &str, except: Range<usize>) -> Vec<String> {
+    let b = masked.as_bytes();
+    let mut names = vec![];
+    let mut from = 0;
+    while let Some(i) = masked[from..].find("block").map(|i| from + i) {
+        from = i + "block".len();
+        if i > 0 && (b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_') {
+            continue;
+        }
+        let rest = &masked[from..];
+        let Some(args) = rest.trim_start().strip_prefix('(') else {
+            continue;
+        };
+        let open = masked.len() - args.len();
+        let close = args
+            .find([')', ':', '{', '}', '\n'])
+            .map_or(masked.len(), |e| open + e);
+        let mut j = open;
+        for word in masked[open..close].split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+            let start = j;
+            j += word.len() + 1;
+            if !word.is_empty() && (start..start + word.len()) != except {
+                names.push(word.to_string());
+            }
+        }
+    }
+    names
 }
 
 fn line_targets(replace: Range<usize>) -> Vec<Item> {

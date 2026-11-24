@@ -103,12 +103,22 @@ Names are documented where they are used:
 | Feature | `.lapkernel` | `.lapsampler` |
 |---|---|---|
 | Hover | built-ins (`q`, `grad`, `log_density_grad`, `propose`, ...): signatures, doc, random numbers drawn | kernels (what `laplace sampler doc` prints: doc comment, tuning values with `@adapt` tags, `propose`/`move`), combinators, a kernel's settings |
-| Completion | built-ins in any block; in `tuning { }` only those a default may use | `block` / `rest`; kernels (built-in, `package::kernel`, local files) and combinators wherever a kernel goes; a kernel's settings inside its parentheses, with defaults |
+| Completion | built-ins in any block; in `tuning { }` only those a default may use | `block` / `rest`; the model's parameters inside `block(...)`; kernels (built-in, `package::kernel`, local files) and combinators wherever a kernel goes; a kernel's settings inside its parentheses, with defaults |
 | Go to definition | | a kernel's `.lapkernel` (a path dependency's own file); a built-in's Rust source, opened read-only |
 | Signature help | | combinators, and kernel calls with each setting's default |
 
-Parameter names inside `block(...)` are not completed: that needs the
-model, which a `.lapsampler` does not name.
+Inside `block(...)`, completion offers the model's parameters that no
+other block names yet. A `.lapsampler` doesn't name its model, so the
+editor uses, in order:
+
+1. a `// model: ../models/m.laplace` comment in the sampler (relative to it);
+2. the `.laplace` file with the same name next to it (`s.laplace` for
+   `s.lapsampler`);
+3. the only `.laplace` file in its directory.
+
+Only the names written in the model's `parameters { }` block are offered.
+The check that every parameter is in exactly one block is still
+`laplace sampler check --model`.
 
 ## Math symbols
 
