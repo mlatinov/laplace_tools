@@ -482,6 +482,7 @@ mod tests {
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         }
     }
@@ -514,6 +515,7 @@ mod tests {
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         };
         let source = "library {\n  import gps\n}\nmodel {\n}\n";
@@ -692,6 +694,7 @@ pub real half(real x) {
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         }
     }

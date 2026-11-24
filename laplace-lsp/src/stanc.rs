@@ -478,6 +478,7 @@ Something deprecated.
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         };
 
@@ -640,6 +641,7 @@ Ill-formed statement.
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         };
 
