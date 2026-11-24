@@ -10,7 +10,8 @@ description = "Language server for .laplace files (semantic tokens, completion, 
 # release checks. laplace-sampler-syntax is the part of laplace-sample that
 # needs no runtime: laplace-sample itself needs libclang to build and does
 # not compile outside its own workspace (docs/editor/phase-0-report.md 0.3).
-# Pinned to editor-api/syntax-crate (laplace PR #7) until it is merged; then
+# Pinned to editor-api/symbols (laplace PR #8, stacked on #7) until both are
+# merged; then
 # to the commit on main, and to the v0.3.0 tag once that exists
 # (docs/editor/open-questions.md, Q3 and Q7).
 #
@@ -19,8 +20,8 @@ description = "Language server for .laplace files (semantic tokens, completion, 
 #   [patch."https://github.com/mlatinov/laplace"]
 #   laplace = { path = "../../laplace" }
 #   laplace-sampler-syntax = { path = "../../laplace/laplace-sampler-syntax" }
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "1dd1b691d41906ac7c6782f19a9101ca556b2c23" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "1dd1b691d41906ac7c6782f19a9101ca556b2c23" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "c6d43bfbf0dc95fd8ca86ac6b57f58d293a17e37" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "c6d43bfbf0dc95fd8ca86ac6b57f58d293a17e37" }
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["rt-multi-thread", "io-std", "io-util", "macros", "sync", "time"] }
 serde = { version = "1", features = ["derive"] }

@@ -2,6 +2,34 @@
 
 ## Open
 
+### Q8: Completing parameter names inside `block(...)` (from Phase 3)
+
+Inside `block(...)`, the names to offer are the model's parameters. A
+`.lapsampler` doesn't say which model it's for: the model is given on the
+command line (`laplace sample model.laplace --sampler s.lapsampler`).
+Phase 3 doesn't build this, as the plan says.
+
+Options:
+
+- **(a) A sibling model.** Use `<stem>.laplace` next to the sampler, or the
+  only `.laplace` in its directory. Read its `parameters { }` block with the
+  `laplace` compiler crate's parser, which needs no BridgeStan. That gives
+  names only: no unconstrained sizes, so no coverage check.
+- **(b) A comment directive**, such as `// model: ../model.laplace`, read only
+  by the editor.
+- **(c) A workspace setting**, `laplace.samplerModel`, a glob from sampler
+  to model.
+- **(d) Nothing:** keep typing names by hand. `laplace sampler check
+  --model` checks them.
+
+**Recommendation: (a), with (b) as the override when (a) finds nothing or
+the wrong file.** Both are editor-only and add no syntax to the language.
+It is a Phase 3-sized follow-up; it needs no change in the `laplace` repo
+beyond what the compiler crate already exposes. That last part is still to
+be confirmed.
+
+## Answered
+
 ### Q7: Moving the laplace pin from the PR branch to `main`, then to `v0.3.0` (from Phase 2)
 
 `laplace-lsp` takes `laplace` and `laplace-sampler-syntax` from
@@ -23,7 +51,14 @@ laplace-sampler-syntax`. Phase 4's merge plan records the order.
 step 3 in Phase 4. Until then the pin is valid, because the branch is
 pushed. Don't delete that branch until the pin has moved.
 
-## Answered
+**Answered 2026-11-24: as recommended.**
+- PR #7 isn't merged yet, so step 2 waits for it.
+- Phase 3 moved the pin to the tip of `editor-api/symbols`
+  ([laplace PR #8](https://github.com/mlatinov/laplace/pull/8), stacked on
+  #7), which Phase 3 needs.
+- Once #7 and #8 are merged, the first commit afterwards moves the pin to
+  the merge commit on `main`; Phase 4 moves it to `v0.3.0`.
+- Neither branch is deleted before the pin moves.
 
 ### Q6: `.laplace` doc-comment text is not scoped as a comment (from Phase 1)
 
