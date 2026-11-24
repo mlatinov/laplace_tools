@@ -57,6 +57,7 @@ const unitTests = {
     "src/test/manifest.test.ts",
     "src/test/symbols.test.ts",
     "src/test/kernelLanguages.test.ts",
+    "src/test/samplerSnippets.test.ts",
   ],
   outdir: "out/test",
   sourcemap: true,

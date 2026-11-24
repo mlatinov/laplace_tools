@@ -113,6 +113,14 @@
       {
         "language": "laplacelib",
         "path": "./snippets/laplacelib.json"
+      },
+      {
+        "language": "lapkernel",
+        "path": "./snippets/lapkernel.json"
+      },
+      {
+        "language": "lapsampler",
+        "path": "./snippets/lapsampler.json"
       }
     ],
     "semanticTokenTypes": [
