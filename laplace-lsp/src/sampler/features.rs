@@ -447,6 +447,136 @@ fn setting_item(kernel: &KernelEntry, s: &KernelSetting, replace: Range<usize>) 
     }
 }
 
+// ---- signature help ----------------------------------------------------------
+
+/// One signature: `label`, and each parameter as a byte range of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Signature {
+    pub label: String,
+    /// Markdown.
+    pub documentation: Option<String>,
+    pub parameters: Vec<(Range<usize>, Option<String>)>,
+    pub active: Option<usize>,
+}
+
+/// The arguments in `label`'s outer parentheses, split at top-level
+/// commas, as byte ranges (a `...` is not an argument).
+fn label_parameters(label: &str) -> Vec<Range<usize>> {
+    let Some(open) = label.find('(') else {
+        return vec![];
+    };
+    let close = label.rfind(')').unwrap_or(label.len());
+    let mut out = vec![];
+    let mut depth = 0;
+    let mut start = open + 1;
+    for (i, c) in label.char_indices().take(close).skip(open + 1) {
+        match c {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                out.push(start..i);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    out.push(start..close);
+    out.into_iter()
+        .map(|r| {
+            let text = &label[r.clone()];
+            let lead = text.len() - text.trim_start().len();
+            r.start + lead..r.start + text.trim_end().len()
+        })
+        .filter(|r| !r.is_empty() && &label[r.clone()] != "...")
+        .collect()
+}
+
+/// The signature of the combinator or kernel call around `offset` in a
+/// `.lapsampler` kernel line.
+pub fn signature_help(text: &str, offset: usize, index: &Index) -> Option<Signature> {
+    if cursor::in_comment(text, offset) {
+        return None;
+    }
+    let masked = cursor::mask_comments(text);
+    let sections = cursor::sections(&masked, offset);
+    if sections.len() != 2 || sections[1] != "kernel" {
+        return None;
+    }
+    let line = cursor::kernel_line_start(&masked, offset);
+    let colon = cursor::line_colon(&masked, line, offset)?;
+    let call = cursor::enclosing_call(&masked, colon + 1, offset)?;
+    if let Some(c) = combinator(&call.callee.text) {
+        let parameters: Vec<(Range<usize>, Option<String>)> = label_parameters(c.signature)
+            .into_iter()
+            .map(|r| (r, None))
+            .collect();
+        let active = call.arg.min(parameters.len().saturating_sub(1));
+        return Some(Signature {
+            label: c.signature.to_string(),
+            documentation: Some(c.doc.to_string()),
+            parameters,
+            active: Some(active),
+        });
+    }
+    let kernel = index.find(&call.callee)?;
+    if kernel.error.is_some() {
+        return None;
+    }
+    let mut label = format!("{}(", kernel.name);
+    let mut parameters = vec![];
+    for (i, s) in kernel.settings.iter().enumerate() {
+        if i > 0 {
+            label += ", ";
+        }
+        let start = label.len();
+        label += &format!("{} = {}", s.name, s.default.as_deref().unwrap_or("..."));
+        let mut doc = vec![];
+        if let Some(a) = &s.adapt {
+            doc.push(format!("`{a}`"));
+        }
+        if let Some(d) = &s.doc {
+            doc.push(d.clone());
+        }
+        parameters.push((start..label.len(), (!doc.is_empty()).then(|| doc.join(" "))));
+    }
+    label += ")";
+    // Settings are named: the active one is the one being written, else
+    // the first not yet given.
+    let arg = masked[call.arg_start..offset].trim_start();
+    let typed: String = arg
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .collect();
+    let given = cursor::named_args(&masked, call.open, offset);
+    let active = if !typed.is_empty() {
+        kernel
+            .settings
+            .iter()
+            .position(|s| s.name == typed)
+            .or_else(|| {
+                (!arg.contains('='))
+                    .then(|| {
+                        kernel
+                            .settings
+                            .iter()
+                            .position(|s| s.name.starts_with(&typed))
+                    })
+                    .flatten()
+            })
+    } else {
+        kernel
+            .settings
+            .iter()
+            .position(|s| !given.contains(&s.name))
+    };
+    Some(Signature {
+        label,
+        documentation: kernel.brief.clone(),
+        parameters,
+        active,
+    })
+}
+
 // ---- go-to-definition --------------------------------------------------------
 
 /// Where a kernel reference is defined.

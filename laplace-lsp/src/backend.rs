@@ -137,6 +137,12 @@ impl LanguageServer for Backend {
                     ..Default::default()
                 }),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
+                // Sampler files only: combinators and kernel calls.
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+                    retrigger_characters: None,
+                    work_done_progress_options: Default::default(),
+                }),
                 definition_provider: Some(OneOf::Left(true)),
                 semantic_tokens_provider: Some(
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
@@ -294,6 +300,18 @@ impl LanguageServer for Backend {
             })),
             Err(_) => Ok(None),
         }
+    }
+
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        if Language::for_uri(&uri) != Some(Language::Sampler) {
+            return Ok(None);
+        }
+        let position = params.text_document_position_params.position;
+        let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
+            return Ok(None);
+        };
+        Ok(sampler_signature_help(&uri, text, position).await)
     }
 
     async fn goto_definition(
@@ -519,4 +537,45 @@ async fn sampler_definition(
     .await
     .ok()
     .flatten()
+}
+
+async fn sampler_signature_help(
+    uri: &Url,
+    text: String,
+    position: Position,
+) -> Option<SignatureHelp> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, Language::Sampler).await?;
+    let sig = features::signature_help(&text, offset, &index)?;
+    // Parameter labels are [start, end) offsets into the label, in UTF-16
+    // code units.
+    let utf16 = |byte: usize| sig.label[..byte].encode_utf16().count() as u32;
+    let parameters = sig
+        .parameters
+        .iter()
+        .map(|(range, doc)| ParameterInformation {
+            label: ParameterLabel::LabelOffsets([utf16(range.start), utf16(range.end)]),
+            documentation: doc.clone().map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+        })
+        .collect();
+    Some(SignatureHelp {
+        signatures: vec![SignatureInformation {
+            label: sig.label.clone(),
+            documentation: sig.documentation.map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+            parameters: Some(parameters),
+            active_parameter: sig.active.map(|a| a as u32),
+        }],
+        active_signature: Some(0),
+        active_parameter: sig.active.map(|a| a as u32),
+    })
 }

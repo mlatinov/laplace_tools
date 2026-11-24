@@ -568,3 +568,98 @@ fn a_built_ins_source_is_written_once_read_only() {
         BuiltIn::Mala.source().1
     );
 }
+
+// ---- signature help ----------------------------------------------------------
+
+/// (label, each parameter's text, the active parameter's text).
+fn signature_at(p: &TestProject, line: &str) -> Option<(String, Vec<String>, Option<String>)> {
+    let (src, o) = at(&format!(
+        "sampler s {{\n  library {{ import langevin }}\n  kernel {{\n    {line}\n  }}\n}}\n"
+    ));
+    let s = signature_help(&src, o, &p.index)?;
+    let params: Vec<String> = s
+        .parameters
+        .iter()
+        .map(|(r, _)| s.label[r.clone()].to_string())
+        .collect();
+    let active = s.active.map(|i| params[i].clone());
+    Some((s.label, params, active))
+}
+
+#[test]
+fn signature_help_for_combinators() {
+    let p = project();
+    let sig = |line: &str| signature_at(&p, line).unwrap();
+    assert_eq!(
+        sig("rest : seq(|"),
+        (
+            "seq(k1, k2, ...)".into(),
+            vec!["k1".into(), "k2".into()],
+            Some("k1".into())
+        )
+    );
+    assert_eq!(sig("rest : seq(rwm(), mala(), |").2.as_deref(), Some("k2"));
+    let (label, params, active) = sig("rest : adapt(mala(), |");
+    assert_eq!(label, "adapt(k, target_accept = ...)");
+    assert_eq!(params, ["k", "target_accept = ..."]);
+    assert_eq!(active.as_deref(), Some("target_accept = ..."));
+    assert_eq!(sig("rest : repeat(|").2.as_deref(), Some("n"));
+    assert_eq!(sig("rest : repeat(3, |").2.as_deref(), Some("k"));
+    let (_, params, _) = sig("rest : mix(|");
+    assert_eq!(params, ["w1 : k1", "w2 : k2"]);
+    let (_, params, _) = sig("rest : on(|");
+    assert_eq!(params, ["block(p1, p2, ...)", "k"]);
+}
+
+#[test]
+fn signature_help_for_kernel_calls_lists_settings_with_defaults() {
+    let p = project();
+    let (label, params, active) = signature_at(&p, "rest : langevin::mala(|").unwrap();
+    assert_eq!(label, "langevin::mala(eps = 1, m = rep_vector(1, dim))");
+    assert_eq!(params, ["eps = 1", "m = rep_vector(1, dim)"]);
+    assert_eq!(active.as_deref(), Some("eps = 1"));
+    let (label, _, active) = signature_at(&p, "rest : hmc(steps = 3, |").unwrap();
+    assert_eq!(label, "hmc(step_size = 1, steps = 10, jitter = true)");
+    assert_eq!(active.as_deref(), Some("step_size = 1"));
+    for (line, want) in [
+        ("rest : hmc(jit|", "jitter = true"),
+        ("rest : hmc(steps = 3, jitter = fa|", "jitter = true"),
+        ("rest : hmc(steps = |", "steps = 10"),
+        (
+            "rest : ./kernels/mine.lapkernel(m|",
+            "m = rep_vector(1, dim)",
+        ),
+    ] {
+        assert_eq!(
+            signature_at(&p, line).unwrap().2.as_deref(),
+            Some(want),
+            "{line}"
+        );
+    }
+    let (src, o) = at(
+        "sampler s {\n  library { import langevin }\n  kernel {\n    rest : langevin::mala(|\n  }\n}\n",
+    );
+    let s = signature_help(&src, o, &p.index).unwrap();
+    assert_eq!(
+        s.documentation.as_deref(),
+        Some("Metropolis-adjusted Langevin algorithm with a diagonal metric")
+    );
+    assert_eq!(
+        s.parameters[0].1.as_deref(),
+        Some("`@adapt(step_size, target_accept = 0.574)` Step size (adapted toward 0.574 acceptance)")
+    );
+}
+
+#[test]
+fn no_signature_help_outside_calls_on_blocks_or_broken_kernels() {
+    let p = project();
+    for line in [
+        "rest : |",
+        "block(|",
+        "rest : seq(rwm(), mala())|",
+        "rest : langevin::broken(|",
+        "rest : nuts() // seq(|",
+    ] {
+        assert_eq!(signature_at(&p, line), None, "{line}");
+    }
+}

@@ -467,3 +467,54 @@ fn definition_of_local_and_built_in_kernels() {
     drop(child.stdin.take());
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn signature_help_in_a_sampler() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut child, mut out) = initialized();
+    let sampler = format!("file://{}/s.lapsampler", tmp.path().display());
+    open(
+        &mut child,
+        &sampler,
+        "lapsampler",
+        "sampler s {\n  kernel {\n    rest : adapt(hmc(steps = 3, \n  }\n}\n",
+    );
+    let h = request(
+        &mut child,
+        &mut out,
+        2,
+        "textDocument/signatureHelp",
+        &sampler,
+        2,
+        32,
+    );
+    let sig = &h["signatures"][0];
+    assert_eq!(
+        sig["label"],
+        "hmc(step_size = 1, steps = 10, jitter = true)"
+    );
+    assert_eq!(sig["parameters"][2]["label"], json!([31, 44]));
+    assert_eq!(h["activeParameter"], 0);
+
+    let model = format!("file://{}/m.laplace", tmp.path().display());
+    open(&mut child, &model, "laplace", "model {\n  y ~ normal(\n}\n");
+    let h = request(
+        &mut child,
+        &mut out,
+        3,
+        "textDocument/signatureHelp",
+        &model,
+        1,
+        13,
+    );
+    assert_eq!(h, Value::Null);
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    );
+    response(&mut out, 9);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}
