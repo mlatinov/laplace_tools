@@ -15,6 +15,8 @@ Custom samplers are experimental in `laplace` 0.3.0, and so is this support.
   - Comments, brackets and indentation.
   - Snippets. `kernel` and `kernel-direct` are what
     `laplace new kernel` writes.
+  - The Laplace file icon in the "Laplace (Seti)" icon theme, as for
+    `.laplace` and `.laplacelib`.
 - Live diagnostics, from the same code as `laplace sampler check`. A sampler
   names kernel files and packages; those are read and checked too. Saving a
   kernel re-checks the open samplers.
