@@ -59,6 +59,28 @@
           ".laplacelib"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "lapkernel",
+        "aliases": [
+          "Laplace Kernel",
+          "lapkernel"
+        ],
+        "extensions": [
+          ".lapkernel"
+        ],
+        "configuration": "./lapkernel-language-configuration.json"
+      },
+      {
+        "id": "lapsampler",
+        "aliases": [
+          "Laplace Sampler",
+          "lapsampler"
+        ],
+        "extensions": [
+          ".lapsampler"
+        ],
+        "configuration": "./lapsampler-language-configuration.json"
       }
     ],
     "grammars": [
