@@ -529,3 +529,37 @@ fn a_diagnostic_in_another_file_stays_at_the_top_with_its_location() {
     assert_eq!(lsp.range, Range::default());
     assert_eq!(lsp.message, "other.lapkernel:3:4: oops");
 }
+
+#[test]
+fn step_size_adaptation_needs_a_target() {
+    assert_diagnostics(
+        &check_kernel(&kernel(
+            "@adapt(step_size, target_accept = 0.574)",
+            "@adapt(step_size)",
+        )),
+        &[(
+            2,
+            26,
+            2,
+            32,
+            "@adapt(step_size) needs the kernel's default acceptance target, e.g. @adapt(step_size, target_accept = 0.574); adapt(k, target_accept = ...) in a .lapsampler can override it",
+        )],
+    );
+}
+
+#[test]
+fn a_terminal_missing_on_one_path() {
+    assert_diagnostics(
+        &check_kernel(&kernel(
+            "    propose(q_new, 0);\n",
+            "    if (eps > 1) {\n      propose(q_new, 0);\n    }\n",
+        )),
+        &[(
+            4,
+            7,
+            4,
+            8,
+            "some path through step { } ends without propose()/move()",
+        )],
+    );
+}
