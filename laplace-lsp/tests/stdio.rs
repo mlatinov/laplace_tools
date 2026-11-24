@@ -93,9 +93,28 @@ fn initialize_initialized_shutdown_exit() {
     let status = child.wait().unwrap();
     assert!(status.success(), "exit status {status}");
 
-    let mut rest = String::new();
-    out.read_to_string(&mut rest).unwrap();
-    assert_eq!(rest, "", "stray output after exit");
+    // What is left must be well-framed notifications (the "initialized"
+    // log message is sent asynchronously and may come after the shutdown
+    // response): no responses, no unframed text.
+    loop {
+        let mut peek = String::new();
+        if out.read_line(&mut peek).unwrap() == 0 {
+            break;
+        }
+        let len: usize = peek
+            .trim_end()
+            .strip_prefix("Content-Length: ")
+            .unwrap_or_else(|| panic!("stray output after exit: {peek:?}"))
+            .parse()
+            .unwrap();
+        let mut blank = String::new();
+        out.read_line(&mut blank).unwrap();
+        assert_eq!(blank, "\r\n", "stray output after exit");
+        let mut body = vec![0; len];
+        out.read_exact(&mut body).unwrap();
+        let m: Value = serde_json::from_slice(&body).unwrap();
+        assert!(m.get("method").is_some() && m.get("id").is_none(), "{m}");
+    }
     let mut err = String::new();
     child
         .stderr
