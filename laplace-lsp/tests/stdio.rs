@@ -229,3 +229,109 @@ fn a_lapkernel_gets_diagnostics_as_it_is_opened_edited_and_closed() {
     drop(child.stdin.take());
     assert!(child.wait().unwrap().success());
 }
+
+/// Starts the server and initializes it.
+fn initialized() -> (Child, BufReader<ChildStdout>) {
+    let mut child = server();
+    let mut out = BufReader::new(child.stdout.take().unwrap());
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+               "params": {"processId": null, "rootUri": null, "capabilities": {}}}),
+    );
+    response(&mut out, 1);
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+    );
+    (child, out)
+}
+
+fn open(child: &mut Child, uri: &str, language: &str, text: &str) {
+    send(
+        child,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument":
+               {"uri": uri, "languageId": language, "version": 1, "text": text}}}),
+    );
+}
+
+fn request(
+    child: &mut Child,
+    out: &mut BufReader<ChildStdout>,
+    id: u64,
+    method: &str,
+    uri: &str,
+    line: u32,
+    character: u32,
+) -> Value {
+    send(
+        child,
+        json!({"jsonrpc": "2.0", "id": id, "method": method, "params": {
+               "textDocument": {"uri": uri}, "position": {"line": line, "character": character}}}),
+    );
+    response(out, id)["result"].clone()
+}
+
+#[test]
+fn hover_in_kernel_and_sampler_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut child, mut out) = initialized();
+
+    let kernel = format!("file://{}/k.lapkernel", tmp.path().display());
+    open(
+        &mut child,
+        &kernel,
+        "lapkernel",
+        "kernel k {\n  step {\n    move(q + std_normal_rng(dim));\n  }\n}\n",
+    );
+    let h = request(
+        &mut child,
+        &mut out,
+        2,
+        "textDocument/hover",
+        &kernel,
+        2,
+        16,
+    );
+    assert_eq!(h["contents"]["kind"], "markdown");
+    let value = h["contents"]["value"].as_str().unwrap();
+    assert!(
+        value.starts_with("```lapkernel\nreal std_normal_rng()"),
+        "{value}"
+    );
+    assert_eq!(
+        h["range"],
+        json!({"start": {"line": 2, "character": 13}, "end": {"line": 2, "character": 27}})
+    );
+
+    let sampler = format!("file://{}/s.lapsampler", tmp.path().display());
+    open(
+        &mut child,
+        &sampler,
+        "lapsampler",
+        "sampler s {\n  kernel {\n    rest : nuts()\n  }\n}\n",
+    );
+    let h = request(
+        &mut child,
+        &mut out,
+        3,
+        "textDocument/hover",
+        &sampler,
+        2,
+        12,
+    );
+    let value = h["contents"]["value"].as_str().unwrap();
+    assert!(
+        value.starts_with("```text\nnuts is a built-in kernel"),
+        "{value}"
+    );
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    );
+    response(&mut out, 9);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}

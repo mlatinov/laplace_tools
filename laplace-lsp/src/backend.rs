@@ -20,7 +20,7 @@ use crate::diagnostics;
 use crate::dialect::Dialect;
 use crate::hover;
 use crate::position;
-use crate::sampler::{self, Language};
+use crate::sampler::{self, features, Language};
 use crate::stanc;
 use crate::workspace;
 
@@ -246,13 +246,13 @@ impl LanguageServer for Backend {
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
         let uri = params.text_document_position_params.text_document.uri;
-        if Language::for_uri(&uri).is_some() {
-            return Ok(None);
-        }
         let position = params.text_document_position_params.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
+        if let Some(language) = Language::for_uri(&uri) {
+            return Ok(sampler_hover(&uri, language, text, position).await);
+        }
 
         let offset = position::position_to_offset(&text, position);
         let analysis = analysis::analyze(&text);
@@ -393,4 +393,43 @@ fn package_prefix(prefix: &str) -> Option<String> {
     } else {
         Some(name)
     }
+}
+
+/// The kernel index for a `.lapsampler` (reads the disk, so off the async
+/// executor). `None` for a `.lapkernel`, which needs none.
+async fn sampler_index(uri: &Url, language: Language) -> Option<features::Index> {
+    if language != Language::Sampler {
+        return None;
+    }
+    let path = uri.to_file_path().ok()?;
+    tokio::task::spawn_blocking(move || features::Index::for_document(&path))
+        .await
+        .ok()
+}
+
+/// A byte range of `text` as an LSP range.
+fn lsp_range(text: &str, range: std::ops::Range<usize>) -> Range {
+    let starts = position::line_starts(text);
+    Range {
+        start: position::offset_to_position(text, &starts, range.start),
+        end: position::offset_to_position(text, &starts, range.end),
+    }
+}
+
+async fn sampler_hover(
+    uri: &Url,
+    language: Language,
+    text: String,
+    position: Position,
+) -> Option<Hover> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, language).await;
+    let (range, markdown) = features::hover(language, &text, offset, index.as_ref())?;
+    Some(Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: markdown,
+        }),
+        range: Some(lsp_range(&text, range)),
+    })
 }

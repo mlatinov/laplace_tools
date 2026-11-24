@@ -31,6 +31,9 @@ use tower_lsp::lsp_types::{
 
 use crate::workspace;
 
+pub mod cursor;
+pub mod features;
+
 /// The `source` shown with each diagnostic.
 pub const SOURCE: &str = "laplace sampler";
 
