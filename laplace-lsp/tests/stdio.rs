@@ -388,3 +388,82 @@ fn completion_in_a_sampler_and_new_triggers_ignored_in_laplace() {
     drop(child.stdin.take());
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn definition_of_local_and_built_in_kernels() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().canonicalize().unwrap();
+    std::fs::write(
+        dir.join("mine.lapkernel"),
+        "// a kernel\nkernel mine {\n  step {\n    move(q);\n  }\n}\n",
+    )
+    .unwrap();
+    // The built-in's source is written under XDG_CACHE_HOME: a temporary one.
+    let cache = dir.join("cache");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_laplace-lsp"))
+        .env("XDG_CACHE_HOME", &cache)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut out = BufReader::new(child.stdout.take().unwrap());
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+               "params": {"processId": null, "rootUri": null, "capabilities": {}}}),
+    );
+    response(&mut out, 1);
+
+    let sampler = format!("file://{}/s.lapsampler", dir.display());
+    open(
+        &mut child,
+        &sampler,
+        "lapsampler",
+        "sampler s {\n  kernel {\n    block(a) : ./mine.lapkernel\n    rest : rwm()\n  }\n}\n",
+    );
+    let d = request(
+        &mut child,
+        &mut out,
+        2,
+        "textDocument/definition",
+        &sampler,
+        2,
+        18,
+    );
+    assert_eq!(d["uri"], format!("file://{}/mine.lapkernel", dir.display()));
+    assert_eq!(
+        d["range"],
+        json!({"start": {"line": 1, "character": 7}, "end": {"line": 1, "character": 11}})
+    );
+
+    let d = request(
+        &mut child,
+        &mut out,
+        3,
+        "textDocument/definition",
+        &sampler,
+        3,
+        12,
+    );
+    let uri = d["uri"].as_str().unwrap();
+    let prefix = format!("file://{}/laplace-lsp/builtin-kernels/", cache.display());
+    assert!(
+        uri.starts_with(&prefix) && uri.ends_with("/rwm.rs"),
+        "{uri}"
+    );
+    let written = std::fs::read_to_string(uri.strip_prefix("file://").unwrap()).unwrap();
+    assert!(
+        written.starts_with("//! Random-walk Metropolis"),
+        "{written}"
+    );
+
+    send(
+        &mut child,
+        json!({"jsonrpc": "2.0", "id": 9, "method": "shutdown"}),
+    );
+    response(&mut out, 9);
+    send(&mut child, json!({"jsonrpc": "2.0", "method": "exit"}));
+    drop(child.stdin.take());
+    assert!(child.wait().unwrap().success());
+}

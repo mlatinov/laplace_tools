@@ -15,6 +15,8 @@ use laplace_sampler_syntax::editor::{
     KernelOrigin, KernelSetting, Project,
 };
 
+use laplace_sampler_syntax::builtin_kernels::BuiltIn;
+
 use super::cursor::{self, Token, TokenKind};
 use super::{project_for, Language};
 
@@ -443,6 +445,91 @@ fn setting_item(kernel: &KernelEntry, s: &KernelSetting, replace: Range<usize>) 
         replace,
         sort: format!("0{}", s.name),
     }
+}
+
+// ---- go-to-definition --------------------------------------------------------
+
+/// Where a kernel reference is defined.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Definition {
+    /// A `.lapkernel`, and the byte range of the kernel's name in it.
+    File(PathBuf, Range<usize>),
+    /// A built-in kernel, implemented in Rust (`BuiltIn::source()`).
+    BuiltIn(BuiltIn),
+}
+
+/// The definition of the kernel named at `offset` in a `.lapsampler`.
+pub fn definition(text: &str, offset: usize, index: &Index) -> Option<Definition> {
+    if cursor::in_comment(text, offset) {
+        return None;
+    }
+    let masked = cursor::mask_comments(text);
+    let token = cursor::token_at(&masked, offset)?;
+    let next = cursor::next_char(&masked, token.range.end);
+    if token.kind == TokenKind::Name && (next == Some('=') || combinator(&token.text).is_some()) {
+        return None;
+    }
+    let file = match index.find(&token) {
+        Some(k) if k.origin == KernelOrigin::BuiltIn => {
+            return BuiltIn::parse(&k.name).ok().map(Definition::BuiltIn);
+        }
+        Some(k) => k.file.clone()?,
+        // A path outside the project is still a file.
+        None if token.kind == TokenKind::Path => {
+            let f = index.dir.join(&token.text);
+            f.is_file().then_some(f)?
+        }
+        None => return None,
+    };
+    let source = std::fs::read_to_string(&file).unwrap_or_default();
+    Some(Definition::File(file, kernel_name_range(&source)))
+}
+
+/// A built-in kernel's implementation as a file to open: written once
+/// under `cache` (a directory per version of the source), read-only, as
+/// `<name>.rs`. The source is the one built into this server
+/// (`BuiltIn::source()`), so it matches the checker it was built with.
+pub fn builtin_source_file(cache: &Path, b: BuiltIn) -> std::io::Result<PathBuf> {
+    use std::hash::{Hash, Hasher};
+    let (_, source) = b.source();
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    source.hash(&mut h);
+    let dir = cache.join(format!("{:016x}", h.finish()));
+    let file = dir.join(format!("{}.rs", b.name()));
+    if std::fs::read_to_string(&file).ok().as_deref() != Some(source) {
+        std::fs::create_dir_all(&dir)?;
+        if file.exists() {
+            let mut perms = std::fs::metadata(&file)?.permissions();
+            #[allow(clippy::permissions_set_readonly_false)]
+            perms.set_readonly(false);
+            std::fs::set_permissions(&file, perms)?;
+        }
+        std::fs::write(&file, source)?;
+        let mut perms = std::fs::metadata(&file)?.permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&file, perms)?;
+    }
+    Ok(file)
+}
+
+/// The name in `kernel <name> {` (or the start of the file).
+fn kernel_name_range(source: &str) -> Range<usize> {
+    let masked = cursor::mask_comments(source);
+    let b = masked.as_bytes();
+    let mut from = 0;
+    while let Some(i) = masked[from..].find("kernel").map(|i| from + i) {
+        let before_ok = i == 0 || !(b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_');
+        let after = i + "kernel".len();
+        if before_ok && b.get(after).is_some_and(|c| c.is_ascii_whitespace()) {
+            let start = after + masked[after..].len() - masked[after..].trim_start().len();
+            let end = masked[start..]
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .map_or(masked.len(), |e| start + e);
+            return start..end;
+        }
+        from = after;
+    }
+    0..0
 }
 
 #[cfg(test)]

@@ -301,13 +301,15 @@ impl LanguageServer for Backend {
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
         let uri = params.text_document_position_params.text_document.uri;
-        if Language::for_uri(&uri).is_some() {
-            return Ok(None);
-        }
         let position = params.text_document_position_params.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
+        if let Some(language) = Language::for_uri(&uri) {
+            return Ok(sampler_definition(&uri, language, text, position)
+                .await
+                .map(GotoDefinitionResponse::Scalar));
+        }
 
         let offset = position::position_to_offset(&text, position);
         let analysis = analysis::analyze(&text);
@@ -480,4 +482,41 @@ async fn sampler_completion(
             ..Default::default()
         })
         .collect()
+}
+
+/// Where built-in kernels' sources are written for go-to-definition:
+/// `$XDG_CACHE_HOME/laplace-lsp/builtin-kernels`, else under `~/.cache`.
+fn builtin_kernels_cache() -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .filter(|v| !v.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| Path::new(&h).join(".cache")))?;
+    Some(base.join("laplace-lsp").join("builtin-kernels"))
+}
+
+async fn sampler_definition(
+    uri: &Url,
+    language: Language,
+    text: String,
+    position: Position,
+) -> Option<Location> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, language).await?;
+    tokio::task::spawn_blocking(move || {
+        let (file, range) = match features::definition(&text, offset, &index)? {
+            features::Definition::File(file, range) => (file, range),
+            features::Definition::BuiltIn(b) => {
+                let file = features::builtin_source_file(&builtin_kernels_cache()?, b).ok()?;
+                (file, 0..0)
+            }
+        };
+        let source = std::fs::read_to_string(&file).ok()?;
+        Some(Location {
+            uri: Url::from_file_path(&file).ok()?,
+            range: lsp_range(&source, range),
+        })
+    })
+    .await
+    .ok()
+    .flatten()
 }

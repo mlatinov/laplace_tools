@@ -477,3 +477,94 @@ fn sampler_completion_offers_nothing_outside_kernel_lines() {
         assert_eq!(labels(&items), Vec::<&str>::new(), "{marked}");
     }
 }
+
+// ---- go-to-definition --------------------------------------------------------
+
+#[test]
+fn definition_of_package_and_local_kernels_is_their_file_at_the_kernel_name() {
+    let p = project();
+    let root = p.dir.parent().unwrap();
+    for (find, file) in [
+        ("langevin::ma", root.join("langevin/kernels/mala.lapkernel")),
+        ("./kernels/mi", p.dir.join("kernels/mine.lapkernel")),
+    ] {
+        let (src, o) = in_sampler(find, 0);
+        let Some(Definition::File(f, range)) = definition(&src, o, &p.index) else {
+            panic!("{find}");
+        };
+        assert_eq!(f, file, "{find}");
+        let text = std::fs::read_to_string(&f).unwrap();
+        assert_eq!(&text[range.clone()], "mala", "{find}");
+        assert!(text[..range.start].ends_with("\nkernel "), "{find}");
+    }
+}
+
+#[test]
+fn definition_of_a_built_in_is_its_implementation() {
+    let p = project();
+    for (find, b) in [("rw", BuiltIn::Rwm), ("nu", BuiltIn::Nuts)] {
+        let (src, o) = in_sampler(find, 0);
+        assert_eq!(definition(&src, o, &p.index), Some(Definition::BuiltIn(b)));
+    }
+}
+
+#[test]
+fn definition_of_a_path_outside_the_project_index() {
+    let p = project();
+    let outside = p.dir.parent().unwrap().join("elsewhere.lapkernel");
+    std::fs::copy(p.dir.join("kernels/mine.lapkernel"), &outside).unwrap();
+    let (src, o) = at("sampler s {\n  kernel {\n    rest : ../elsewhere.lap|kernel\n  }\n}\n");
+    let Some(Definition::File(f, _)) = definition(&src, o, &p.index) else {
+        panic!();
+    };
+    assert_eq!(f, p.dir.join("../elsewhere.lapkernel"));
+}
+
+#[test]
+fn no_definition_for_combinators_settings_keywords_missing_files_or_comments() {
+    let p = project();
+    for find in ["ada", "se", "mala(ep", "target_acc", "bloc", "res"] {
+        let (src, o) = in_sampler(find, 0);
+        assert_eq!(definition(&src, o, &p.index), None, "{find}");
+    }
+    let (src, o) = at("sampler s {\n  kernel {\n    rest : ./nope.lap|kernel // ./kernels/mine.lapkernel\n  }\n}\n");
+    assert_eq!(definition(&src, o, &p.index), None);
+    let (src, o) =
+        at("sampler s {\n  kernel {\n    rest : nuts() // ./kernels/mine.lap|kernel\n  }\n}\n");
+    assert_eq!(definition(&src, o, &p.index), None);
+}
+
+#[test]
+fn the_kernel_name_is_found_past_comments() {
+    let src = "// kernel fake {\n/* kernel other { */\nkernel  real_one {\n}\n";
+    assert_eq!(&src[kernel_name_range(src)], "real_one");
+    assert_eq!(kernel_name_range("no kernel here?"), 10..14);
+    assert_eq!(kernel_name_range(""), 0..0);
+}
+
+#[test]
+fn a_built_ins_source_is_written_once_read_only() {
+    let tmp = tempfile::tempdir().unwrap();
+    let file = builtin_source_file(tmp.path(), BuiltIn::Mala).unwrap();
+    assert!(file.ends_with("mala.rs"), "{}", file.display());
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        BuiltIn::Mala.source().1
+    );
+    assert!(std::fs::metadata(&file).unwrap().permissions().readonly());
+    assert_eq!(
+        builtin_source_file(tmp.path(), BuiltIn::Mala).unwrap(),
+        file
+    );
+    // A damaged copy is rewritten.
+    let mut perms = std::fs::metadata(&file).unwrap().permissions();
+    #[allow(clippy::permissions_set_readonly_false)]
+    perms.set_readonly(false);
+    std::fs::set_permissions(&file, perms).unwrap();
+    std::fs::write(&file, "edited").unwrap();
+    builtin_source_file(tmp.path(), BuiltIn::Mala).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        BuiltIn::Mala.source().1
+    );
+}
