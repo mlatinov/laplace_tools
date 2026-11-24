@@ -27,26 +27,18 @@
 >  // @brief Centre a vector on its own mean.
 #^^ source.laplace
 #  ^^^ source.laplace comment.line.double-slash.laplace
-#     ^^^^^^ source.laplace keyword.other.doctag.laplace
-#           ^^^^^^^^^^ source.laplace
-#                     ^^^^^^ source.laplace storage.type.laplace
-#                           ^^^^^^^^^^^^^^^^^^ source.laplace
+#     ^^^^^^ source.laplace comment.line.double-slash.laplace keyword.other.doctag.laplace
+#           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
 >  // @param x the vector to centre
 #^^ source.laplace
 #  ^^^ source.laplace comment.line.double-slash.laplace
-#     ^^^^^^ source.laplace keyword.other.doctag.laplace
-#           ^^^^^^^ source.laplace
-#                  ^^^^^^ source.laplace storage.type.laplace
-#                        ^^^^^^^^^^^ source.laplace
+#     ^^^^^^ source.laplace comment.line.double-slash.laplace keyword.other.doctag.laplace
+#           ^^^^^^^^^^^^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
 >  // @return x - mean(x)
 #^^ source.laplace
 #  ^^^ source.laplace comment.line.double-slash.laplace
-#     ^^^^^^^ source.laplace keyword.other.doctag.laplace
-#            ^^^ source.laplace
-#               ^ source.laplace keyword.operator.laplace
-#                ^ source.laplace
-#                 ^^^^ source.laplace entity.name.function.laplace
-#                     ^^^^ source.laplace
+#     ^^^^^^^ source.laplace comment.line.double-slash.laplace keyword.other.doctag.laplace
+#            ^^^^^^^^^^^^ source.laplace comment.line.double-slash.laplace
 >  vector centre(vector x) {
 #^^ source.laplace
 #  ^^^^^^ source.laplace storage.type.laplace
