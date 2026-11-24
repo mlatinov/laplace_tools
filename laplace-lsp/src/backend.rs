@@ -15,8 +15,8 @@ use tower_lsp::{async_trait, Client, LanguageServer};
 
 use crate::analysis::{self, TOKEN_TYPES};
 use crate::completion;
-use crate::dialect::Dialect;
 use crate::diagnostics;
+use crate::dialect::Dialect;
 use crate::hover;
 use crate::position;
 use crate::stanc;
@@ -69,9 +69,10 @@ impl Backend {
             // contributes nothing if `stanc` isn't installed.
             let stanc_uri = uri.clone();
             let stanc_text = text.clone();
-            if let Ok(stanc_diags) =
-                tokio::task::spawn_blocking(move || stanc::compute_stanc_diagnostics_for_uri(&stanc_uri, &stanc_text))
-                    .await
+            if let Ok(stanc_diags) = tokio::task::spawn_blocking(move || {
+                stanc::compute_stanc_diagnostics_for_uri(&stanc_uri, &stanc_text)
+            })
+            .await
             {
                 diags.extend(stanc_diags);
             }
@@ -89,7 +90,9 @@ impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::FULL,
+                )),
                 completion_provider: Some(CompletionOptions {
                     trigger_characters: Some(vec![":".to_string()]),
                     resolve_provider: Some(false),
@@ -97,17 +100,22 @@ impl LanguageServer for Backend {
                 }),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 definition_provider: Some(OneOf::Left(true)),
-                semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
-                    SemanticTokensOptions {
-                        legend: SemanticTokensLegend {
-                            token_types: TOKEN_TYPES.iter().map(|s| SemanticTokenType::new(s)).collect(),
-                            token_modifiers: vec![],
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            legend: SemanticTokensLegend {
+                                token_types: TOKEN_TYPES
+                                    .iter()
+                                    .map(|s| SemanticTokenType::new(s))
+                                    .collect(),
+                                token_modifiers: vec![],
+                            },
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                            range: Some(false),
+                            work_done_progress_options: Default::default(),
                         },
-                        full: Some(SemanticTokensFullOptions::Bool(true)),
-                        range: Some(false),
-                        work_done_progress_options: Default::default(),
-                    },
-                )),
+                    ),
+                ),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -129,7 +137,8 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
-        self.documents.insert(uri.clone(), params.text_document.text);
+        self.documents
+            .insert(uri.clone(), params.text_document.text);
         self.schedule_diagnostics(uri);
     }
 
@@ -176,10 +185,9 @@ impl LanguageServer for Backend {
         }
 
         let analysis = analysis::analyze(&text);
-        Ok(Some(CompletionResponse::Array(completion::general_completions(
-            &analysis,
-            Dialect::for_uri(&uri),
-        ))))
+        Ok(Some(CompletionResponse::Array(
+            completion::general_completions(&analysis, Dialect::for_uri(&uri)),
+        )))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
@@ -191,7 +199,11 @@ impl LanguageServer for Backend {
 
         let offset = position::position_to_offset(&text, position);
         let analysis = analysis::analyze(&text);
-        let Some(call) = analysis.library_calls.iter().find(|c| c.range.contains(&offset)) else {
+        let Some(call) = analysis
+            .library_calls
+            .iter()
+            .find(|c| c.range.contains(&offset))
+        else {
             return Ok(None);
         };
 
@@ -216,7 +228,10 @@ impl LanguageServer for Backend {
         }
     }
 
-    async fn goto_definition(&self, params: GotoDefinitionParams) -> Result<Option<GotoDefinitionResponse>> {
+    async fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Option<GotoDefinitionResponse>> {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
@@ -225,7 +240,11 @@ impl LanguageServer for Backend {
 
         let offset = position::position_to_offset(&text, position);
         let analysis = analysis::analyze(&text);
-        let Some(call) = analysis.library_calls.iter().find(|c| c.range.contains(&offset)) else {
+        let Some(call) = analysis
+            .library_calls
+            .iter()
+            .find(|c| c.range.contains(&offset))
+        else {
             return Ok(None);
         };
 
@@ -245,7 +264,9 @@ impl LanguageServer for Backend {
         let cache_root = workspace::default_cache_root();
         let package_dir = cache_root.join(&locked.name).join(&locked.version);
 
-        let Some((file, def_offset)) = workspace::find_function_definition(&package_dir, &call.func) else {
+        let Some((file, def_offset)) =
+            workspace::find_function_definition(&package_dir, &call.func)
+        else {
             return Ok(None);
         };
         let Ok(def_source) = std::fs::read_to_string(&file) else {
@@ -271,7 +292,10 @@ impl LanguageServer for Backend {
         })))
     }
 
-    async fn semantic_tokens_full(&self, params: SemanticTokensParams) -> Result<Option<SemanticTokensResult>> {
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri;
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);

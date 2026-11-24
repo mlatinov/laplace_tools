@@ -55,13 +55,22 @@ mod tests {
 
     #[test]
     fn dialect_comes_from_the_file_extension() {
-        assert_eq!(Dialect::for_path(Path::new("/m/model.laplace")), Dialect::Laplace);
-        assert_eq!(Dialect::for_path(Path::new("/m/stats.laplacelib")), Dialect::Library);
+        assert_eq!(
+            Dialect::for_path(Path::new("/m/model.laplace")),
+            Dialect::Laplace
+        );
+        assert_eq!(
+            Dialect::for_path(Path::new("/m/stats.laplacelib")),
+            Dialect::Library
+        );
     }
 
     #[test]
     fn an_unknown_or_missing_extension_is_treated_as_the_project_dialect() {
-        assert_eq!(Dialect::for_path(Path::new("/m/notes.txt")), Dialect::Laplace);
+        assert_eq!(
+            Dialect::for_path(Path::new("/m/notes.txt")),
+            Dialect::Laplace
+        );
         assert_eq!(Dialect::for_path(Path::new("/m/README")), Dialect::Laplace);
     }
 }
