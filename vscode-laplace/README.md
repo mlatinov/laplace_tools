@@ -26,8 +26,9 @@ for `.laplace` files — a source-to-source preprocessor for
   for the active theme.
 - **Laplace patch-1 syntax** — highlighting, snippets and diagnostics; see
   below.
-- **Sampler files** (`.lapkernel`, `.lapsampler`): highlighting, snippets
-  and live diagnostics; see below.
+- **Sampler files** (`.lapkernel`, `.lapsampler`): highlighting, snippets,
+  live diagnostics, hover, completion, go-to-definition and signature help;
+  see below.
 - **Math symbols (optional, off by default)** — show `sigma_obs` as σ with a
   subscript, `sum(x)` as ∑(x), `<=` as ≤, and type them LaTeX-style with
   `\sigma_{obs}`. Display only; see below.
@@ -96,6 +97,18 @@ parameters) are checked as you type, by the same code as
 Block coverage (every model parameter in exactly one block) needs the
 model, so the editor does not check it. Run
 `laplace sampler check <file>.lapsampler --model <model>.laplace` for that.
+
+Names are documented where they are used:
+
+| Feature | `.lapkernel` | `.lapsampler` |
+|---|---|---|
+| Hover | built-ins (`q`, `grad`, `log_density_grad`, `propose`, ...): signatures, doc, random numbers drawn | kernels (what `laplace sampler doc` prints: doc comment, tuning values with `@adapt` tags, `propose`/`move`), combinators, a kernel's settings |
+| Completion | built-ins in any block; in `tuning { }` only those a default may use | `block` / `rest`; kernels (built-in, `package::kernel`, local files) and combinators wherever a kernel goes; a kernel's settings inside its parentheses, with defaults |
+| Go to definition | | a kernel's `.lapkernel` (a path dependency's own file); a built-in's Rust source, opened read-only |
+| Signature help | | combinators, and kernel calls with each setting's default |
+
+Parameter names inside `block(...)` are not completed: that needs the
+model, which a `.lapsampler` does not name.
 
 ## Math symbols
 
