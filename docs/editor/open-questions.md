@@ -2,27 +2,6 @@
 
 ## Open
 
-### Q6: `.laplace` doc-comment text is not scoped as a comment (from Phase 1)
-
-The `.laplace` grammar's `comments` rule matches `// @param` but not the
-text after it. In `// @param x the vector to standardise`, the text is
-unscoped, and `vector` is coloured as a type. You can see it in
-`vscode-laplace/fixtures/stats.laplacelib.snap`. The new kernel grammars
-don't include this rule, so they're not affected.
-
-Options:
-
-- **(a)** A small separate PR that scopes the whole doc line as a comment,
-  with the tag highlighted inside, as `lapkernel.tmLanguage.json` does. The
-  `.laplace` snapshots change, and the diff is reviewed.
-- **(b)** Leave it.
-
-**Recommendation: (a), but outside this plan.** "Changes to `.laplace`
-language features" is out of scope here, and it is a highlighting-only fix.
-
-
-## Open (Phase 2)
-
 ### Q7: Moving the laplace pin from the PR branch to `main`, then to `v0.3.0` (from Phase 2)
 
 `laplace-lsp` takes `laplace` and `laplace-sampler-syntax` from
@@ -45,6 +24,30 @@ step 3 in Phase 4. Until then the pin is valid, because the branch is
 pushed. Don't delete that branch until the pin has moved.
 
 ## Answered
+
+### Q6: `.laplace` doc-comment text is not scoped as a comment (from Phase 1)
+
+The `.laplace` grammar's `comments` rule matches `// @param` but not the
+text after it. In `// @param x the vector to standardise`, the text is
+unscoped, and `vector` is coloured as a type. You can see it in
+`vscode-laplace/fixtures/stats.laplacelib.snap`. The new kernel grammars
+don't include this rule, so they're not affected.
+
+Options:
+
+- **(a)** A small separate PR that scopes the whole doc line as a comment,
+  with the tag highlighted inside, as `lapkernel.tmLanguage.json` does. The
+  `.laplace` snapshots change, and the diff is reviewed.
+- **(b)** Leave it.
+
+**Recommendation: (a), but outside this plan.** "Changes to `.laplace`
+language features" is out of scope here, and it is a highlighting-only fix.
+
+**Answered 2026-11-24: (a),** outside the plan:
+[laplace_tools PR #6](https://github.com/mlatinov/laplace_tools/pull/6),
+branch `laplace/doc-comment-scope`. Only the tag is highlighted: the
+`@param` name is not, because `stats_patch1` writes `//@param vector t :`.
+Only doc lines change in the four affected snapshots.
 
 ### Q1: Fix the pre-existing `laplace-lsp` breakage first (from Phase 0)
 
@@ -91,6 +94,13 @@ reported and merged separately. It is also where Phase 3.1's `builtins()`,
 `combinators()` and `kernel_index()` belong.
 
 **Answered 2026-11-24: (A),** the `laplace-sampler-syntax` crate, on `laplace` branch `editor-api/syntax-crate`. Needed by Phase 2.2.
+
+**Done in Phase 2:** [laplace PR #7](https://github.com/mlatinov/laplace/pull/7)
+(open). One correction to Phase 0. The crate needs no libclang and no C++,
+but building it does need a **C compiler**: `pest` depends on
+`pest_stack_guard`, which uses `psm`, which assembles one file through `cc`.
+Rust already needs that toolchain to link on Linux and macOS, so nothing
+extra gets installed. But "no C toolchain at all" was wrong.
 
 ### Q3: Pinning `laplace` in `laplace-lsp` (from Phase 0)
 
