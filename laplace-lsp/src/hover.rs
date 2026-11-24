@@ -132,13 +132,19 @@ mod tests {
         assert_eq!(maths.len(), 1, "expected one math section in:\n{rendered}");
         assert_eq!(maths[0], format!("{math}\n"));
         assert!(!body.contains("Math:"), "header left behind in:\n{body}");
-        assert!(!body.contains("\\operatorname"), "LaTeX left behind in:\n{body}");
+        assert!(
+            !body.contains("\\operatorname"),
+            "LaTeX left behind in:\n{body}"
+        );
         // Every other section survives untouched.
         assert!(body.contains("Radial basis covariance."));
         assert!(body.contains("Parameters:"));
         assert!(body.contains("the covariance matrix"));
         assert!(body.contains("rbf_cov([1.0]')"));
-        assert!(!body.contains("\n\n\n"), "double blank line left behind in:\n{body}");
+        assert!(
+            !body.contains("\n\n\n"),
+            "double blank line left behind in:\n{body}"
+        );
     }
 
     #[test]
@@ -167,7 +173,10 @@ mod tests {
         let rendered = laplace::docs::render_overloads("gps", &[sig(Some("E = mc^2"))]);
         let value = markdown(&rendered);
         let (before, after) = value.split_once("```math").expect("a math fence");
-        assert!(!before.contains("E = mc^2"), "math inside the body fence:\n{before}");
+        assert!(
+            !before.contains("E = mc^2"),
+            "math inside the body fence:\n{before}"
+        );
         assert!(after.contains("E = mc^2"));
     }
 

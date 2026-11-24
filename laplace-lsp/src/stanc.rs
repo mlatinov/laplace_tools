@@ -82,7 +82,10 @@ fn compute_stanc_diagnostics(
         Ok(b) => b,
         Err(_) => return Vec::new(),
     };
-    let imports = library_block.as_ref().map(|b| b.imports.as_slice()).unwrap_or(&[]);
+    let imports = library_block
+        .as_ref()
+        .map(|b| b.imports.as_slice())
+        .unwrap_or(&[]);
 
     let mut installed = Vec::new();
     for import in imports {
@@ -279,12 +282,14 @@ fn to_lsp_diagnostic(
         StancSeverity::Warning => DiagnosticSeverity::WARNING,
     };
 
-    let mapped = gen_starts.get(d.line.saturating_sub(1)).and_then(|&line_start| {
-        let span_len = d.column_end.saturating_sub(d.column_start).max(1);
-        mapper
-            .map(line_start + d.column_start)
-            .map(|orig_start| orig_start..(orig_start + span_len).min(source.len()))
-    });
+    let mapped = gen_starts
+        .get(d.line.saturating_sub(1))
+        .and_then(|&line_start| {
+            let span_len = d.column_end.saturating_sub(d.column_start).max(1);
+            mapper
+                .map(line_start + d.column_start)
+                .map(|orig_start| orig_start..(orig_start + span_len).min(source.len()))
+        });
 
     let (range, message) = match mapped {
         Some(r) => (r, d.message),
@@ -317,10 +322,16 @@ fn package_fallback(
     library_block: Option<&LibraryBlock>,
     gen_line: usize,
 ) -> Option<(Range<usize>, String)> {
-    let pkg_range = generated.package_line_ranges.iter().find(|r| r.lines.contains(&gen_line))?;
+    let pkg_range = generated
+        .package_line_ranges
+        .iter()
+        .find(|r| r.lines.contains(&gen_line))?;
     let block = library_block?;
     let import = block.imports.iter().find(|i| i.name == pkg_range.package)?;
-    Some((import_range(source, block, import), pkg_range.package.clone()))
+    Some((
+        import_range(source, block, import),
+        pkg_range.package.clone(),
+    ))
 }
 
 /// Locates a usable `stanc` binary once per process: `$LAPLACE_STANC` if
@@ -405,7 +416,13 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let stanc = fake_stanc(tmp.path(), 0, "");
         let source = "data {\n  int N;\n}\nmodel {\n}\n";
-        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            &stanc,
+            source,
+            Dialect::Laplace,
+            &Lockfile::default(),
+            tmp.path(),
+        );
         assert!(diags.is_empty());
     }
 
@@ -414,8 +431,10 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         // `real y = x[1]` on line 5 of the generated (== original, no
         // imports) source: a missing semicolon.
-        let source = "data {\n  vector[1] x;\n}\nmodel {\n  real y = x[1]\n  y ~ normal(0, 1);\n}\n";
-        let stanc_output = "Syntax error in 'model.stan', line 5, column 2 to column 3, parsing error:
+        let source =
+            "data {\n  vector[1] x;\n}\nmodel {\n  real y = x[1]\n  y ~ normal(0, 1);\n}\n";
+        let stanc_output =
+            "Syntax error in 'model.stan', line 5, column 2 to column 3, parsing error:
    -------------------------------------------------
      4:  model {
      5:    real y = x[1]
@@ -426,7 +445,13 @@ mod tests {
 Ill-formed expression.
 ";
         let stanc = fake_stanc(tmp.path(), 1, stanc_output);
-        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            &stanc,
+            source,
+            Dialect::Laplace,
+            &Lockfile::default(),
+            tmp.path(),
+        );
 
         assert_eq!(diags.len(), 1);
         let d = &diags[0];
@@ -450,7 +475,13 @@ Ill-formed expression.
 Something deprecated.
 ";
         let stanc = fake_stanc(tmp.path(), 1, stanc_output);
-        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            &stanc,
+            source,
+            Dialect::Laplace,
+            &Lockfile::default(),
+            tmp.path(),
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Some(DiagnosticSeverity::WARNING));
     }
@@ -478,6 +509,7 @@ Something deprecated.
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         };
 
@@ -488,7 +520,13 @@ Something deprecated.
         // fake `stanc` output can point at a real line inside it.
         let block = parse_library_block(source).unwrap();
         let installed = vec![load_installed_package(&pkg_dir, "gps").unwrap()];
-        let (generated, _) = codegen::generate_with_source_map(source, block.as_ref(), &installed, &CodegenOptions::inline()).unwrap();
+        let (generated, _) = codegen::generate_with_source_map(
+            source,
+            block.as_ref(),
+            &installed,
+            &CodegenOptions::inline(),
+        )
+        .unwrap();
         let pkg_line = *generated.package_line_ranges[0].lines.start();
 
         let stanc_output = format!(
@@ -516,7 +554,13 @@ Something wrong in the package's own code.
         let tmp = tempfile::tempdir().unwrap();
         let stanc = fake_stanc(tmp.path(), 1, "should never run");
         let source = "library {\n  import gps\n}\nmodel {\n}\n";
-        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Laplace, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            &stanc,
+            source,
+            Dialect::Laplace,
+            &Lockfile::default(),
+            tmp.path(),
+        );
         assert!(diags.is_empty());
     }
 
@@ -576,7 +620,13 @@ Something wrong in the package's own code.
         assert!(wrap_library_source(source).is_none());
 
         let stanc = fake_stanc(tmp.path(), 1, "should never run");
-        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Library, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            &stanc,
+            source,
+            Dialect::Library,
+            &Lockfile::default(),
+            tmp.path(),
+        );
         assert!(diags.is_empty());
     }
 
@@ -587,7 +637,8 @@ Something wrong in the package's own code.
         // longer than the file: the error stanc reports on generated line 3
         // is on line 2 of what the user is editing.
         let source = "real f(real x) {\n  return x\n}\n";
-        let stanc_output = "Syntax error in 'model.stan', line 3, column 2 to column 3, parsing error:
+        let stanc_output =
+            "Syntax error in 'model.stan', line 3, column 2 to column 3, parsing error:
    -------------------------------------------------
      3:    return x
    -------------------------------------------------
@@ -595,7 +646,13 @@ Something wrong in the package's own code.
 Ill-formed statement.
 ";
         let stanc = fake_stanc(tmp.path(), 1, stanc_output);
-        let diags = compute_stanc_diagnostics(&stanc, source, Dialect::Library, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            &stanc,
+            source,
+            Dialect::Library,
+            &Lockfile::default(),
+            tmp.path(),
+        );
 
         assert_eq!(diags.len(), 1);
         let d = &diags[0];
@@ -626,7 +683,11 @@ Ill-formed statement.
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("stats").join("1.0.0");
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("laplace.toml"), "name = \"stats\"\nversion = \"1.0.0\"\n").unwrap();
+        fs::write(
+            dir.join("laplace.toml"),
+            "name = \"stats\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
         fs::write(
             dir.join("stats.laplacelib"),
             "pub @template ncp($name: ident, $N: expr) {\n  parameters {\n    vector[$N] ${name}_raw;\n  }\n  model {\n    ${name}_raw ~ std_normal();\n  }\n}\n",
@@ -640,17 +701,25 @@ Ill-formed statement.
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         };
 
-        let clean = "library {\n  import stats\n}\n\n@use stats::ncp(theta, K);\ndata {\n  int K;\n}\n";
-        assert!(compute_stanc_diagnostics(stanc, clean, Dialect::Laplace, &lock, tmp.path()).is_empty());
+        let clean =
+            "library {\n  import stats\n}\n\n@use stats::ncp(theta, K);\ndata {\n  int K;\n}\n";
+        assert!(
+            compute_stanc_diagnostics(stanc, clean, Dialect::Laplace, &lock, tmp.path()).is_empty()
+        );
 
         // Missing `;` on line 8, below the `@use`.
         let broken = "library {\n  import stats\n}\n\n@use stats::ncp(theta, K);\ndata {\n  int K;\n  real x\n}\n";
         let diags = compute_stanc_diagnostics(stanc, broken, Dialect::Laplace, &lock, tmp.path());
         assert_eq!(diags.len(), 1, "{diags:?}");
-        assert!(diags[0].message.contains("Expected \";\""), "{}", diags[0].message);
+        assert!(
+            diags[0].message.contains("Expected \";\""),
+            "{}",
+            diags[0].message
+        );
     }
 
     /// A library is checked as the compiler emits it: no `pub`, no
@@ -683,11 +752,23 @@ pub real h(real x) {
   return x;
 }
 ";
-        let diags = compute_stanc_diagnostics(stanc, clean, Dialect::Library, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            stanc,
+            clean,
+            Dialect::Library,
+            &Lockfile::default(),
+            tmp.path(),
+        );
         assert!(diags.is_empty(), "{diags:?}");
 
         let broken = clean.replace("  return x;\n", "  return x\n");
-        let diags = compute_stanc_diagnostics(stanc, &broken, Dialect::Library, &Lockfile::default(), tmp.path());
+        let diags = compute_stanc_diagnostics(
+            stanc,
+            &broken,
+            Dialect::Library,
+            &Lockfile::default(),
+            tmp.path(),
+        );
         assert_eq!(diags.len(), 1, "{diags:?}");
         // `stanc` reports the line after the missing `;`: the closing brace
         // of `h`, line 21 -- in the user's file, past every patch-1 line.

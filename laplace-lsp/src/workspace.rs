@@ -17,7 +17,8 @@ pub fn find_lockfile(start_dir: &Path) -> Option<PathBuf> {
 }
 
 pub fn default_cache_root() -> PathBuf {
-    let home = std::env::var_os("HOME").expect("HOME must be set for laplace-lsp to locate ~/.laplace");
+    let home =
+        std::env::var_os("HOME").expect("HOME must be set for laplace-lsp to locate ~/.laplace");
     PathBuf::from(home).join(".laplace").join("packages")
 }
 
@@ -125,7 +126,6 @@ fn find_function_header_offset(source: &str, name: &str) -> Option<usize> {
     None
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -142,8 +142,16 @@ mod tests {
     fn a_plain_stan_package_files_definitions_are_found() {
         let tmp = tempfile::tempdir().unwrap();
         let path = write(tmp.path(), "gps.stan", "real f(real x) {\n  return x;\n}\n");
-        assert!(defines_function(&path, &fs::read_to_string(&path).unwrap(), "f"));
-        assert!(!defines_function(&path, &fs::read_to_string(&path).unwrap(), "g"));
+        assert!(defines_function(
+            &path,
+            &fs::read_to_string(&path).unwrap(),
+            "f"
+        ));
+        assert!(!defines_function(
+            &path,
+            &fs::read_to_string(&path).unwrap(),
+            "g"
+        ));
     }
 
     #[test]
