@@ -1,0 +1,91 @@
+# The gate every change passes locally, on GitHub's runners:
+#   - laplace-lsp: fmt, clippy -D warnings, and the tests (unit + stdio);
+#   - vscode-laplace: type check, unit tests, grammar snapshots, the bundle
+#     check and the snippet tests against the real `laplace` CLI, then
+#     the VSIX is built and kept as an artifact.
+# Nothing here publishes: the VSIX is uploaded to the run, not to Open VSX.
+name: editor
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lsp:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: laplace-lsp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: laplace-lsp
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-laplace
+    steps:
+      - uses: actions/checkout@v4
+
+      # The snippet tests run `laplace new kernel` and `laplace sampler
+      # check`. They use the `laplace` commit the LSP is pinned to, so the
+      # editor and the CLI under test are the same code. `laplace sampler`
+      # runs the `laplace-sample` binary, which needs libclang to build
+      # (bridgestan runs bindgen); the ubuntu runner image has it.
+      # Read from Cargo.lock, which records the commit whether Cargo.toml
+      # pins a rev or (after the release) the v0.3.0 tag.
+      - name: The laplace commit laplace-lsp is pinned to
+        id: pin
+        working-directory: .
+        run: |
+          rev=$(grep -o 'git+https://github.com/mlatinov/laplace?[^"]*' laplace-lsp/Cargo.lock \
+            | sed 's/.*#//' | sort -u)
+          test "$(echo "$rev" | wc -w)" = 1 || { echo "want one laplace commit, got: $rev"; exit 1; }
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: cli-cache
+        with:
+          path: ~/laplace-cli
+          key: laplace-cli-${{ runner.os }}-${{ steps.pin.outputs.rev }}
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+      - name: Install laplace and laplace-sample
+        if: steps.cli-cache.outputs.cache-hit != 'true'
+        working-directory: .
+        run: >
+          cargo install --locked --root ~/laplace-cli
+          --git https://github.com/mlatinov/laplace --rev ${{ steps.pin.outputs.rev }}
+          laplace laplace-sample
+      - run: echo "$HOME/laplace-cli/bin" >> "$GITHUB_PATH"
+      - run: laplace --version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vscode-laplace/package-lock.json
+      - run: npm ci
+      # LAPLACE_REQUIRE_CLI=1: a missing CLI fails the snippet tests
+      # instead of skipping them.
+      - run: npm test
+        env:
+          LAPLACE_REQUIRE_CLI: "1"
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: vscode-laplace/*.vsix
+          if-no-files-found: error
