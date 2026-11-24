@@ -2,6 +2,10 @@
 
 ## Open
 
+(none)
+
+## Answered
+
 ### Q1: Fix the pre-existing `laplace-lsp` breakage first (from Phase 0)
 
 On `main` against `laplace` 0.3.0:
@@ -21,6 +25,8 @@ Options:
 **Recommendation: (b).** It's independent of the kernel work. It gives Phase 2.4
 a green baseline to compare against, and keeps the fmt-only diff out of feature
 review.
+
+**Answered 2026-11-24: (b).** Fixed in PR #5 (`lsp/fix-tests-fmt`): commit `ceac6d1` adds `kind` to the test lockfiles (63/63 pass), and `eae8968` is the fmt-only commit.
 
 ### Q2: How `laplace-lsp` gets the sampler checker without libclang (from Phase 0)
 
@@ -44,6 +50,8 @@ Options:
 reported and merged separately. It is also where Phase 3.1's `builtins()`,
 `combinators()` and `kernel_index()` belong.
 
+**Answered 2026-11-24: (A),** the `laplace-sampler-syntax` crate, on `laplace` branch `editor-api/syntax-crate`. Needed by Phase 2.2.
+
 ### Q3: Pinning `laplace` in `laplace-lsp` (from Phase 0)
 
 Today it's `path = "../../laplace"`, the working tree. Phase 2.2 adds a git
@@ -58,6 +66,8 @@ Options:
 **Recommendation: (a)**, with a `[patch."https://github.com/mlatinov/laplace"]`
 path override documented for local co-development. Switch both to the
 `v0.3.0` tag once it exists (Phase 4).
+
+**Answered 2026-11-24: (a).** Pin both to the same git `rev`, with a documented `[patch]` path override for local work. Done in Phase 2.2.
 
 ### Q4: Grammar reuse where the token sets differ (from Phase 0, for 1.2)
 
@@ -82,6 +92,8 @@ write local `types`, `control` and `numbers` rules. Don't split rules in the
 `.laplace` grammar to make them includable; that risks `.laplace` regressions
 for little gain.
 
+**Answered 2026-11-24: (b).** Done in Phase 1.2.
+
 ### Q5: Fixture locations (from Phase 0, for 1.2)
 
 - `broken_mala.lapkernel` is at
@@ -96,6 +108,4 @@ for little gain.
 so the snapshot tests don't depend on sibling repos, and note the source
 commit in a README there.
 
-## Answered
-
-(none yet)
+**Answered 2026-11-24:** copy the fixtures into `vscode-laplace/fixtures/sampler/`. Done in Phase 1.2.
