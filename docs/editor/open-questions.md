@@ -2,7 +2,24 @@
 
 ## Open
 
-(none)
+### Q6: `.laplace` doc-comment text is not scoped as a comment (from Phase 1)
+
+The `.laplace` grammar's `comments` rule matches `// @param` but not the
+text after it. In `// @param x the vector to standardise`, the text is
+unscoped, and `vector` is coloured as a type. You can see it in
+`vscode-laplace/fixtures/stats.laplacelib.snap`. The new kernel grammars
+don't include this rule, so they're not affected.
+
+Options:
+
+- **(a)** A small separate PR that scopes the whole doc line as a comment,
+  with the tag highlighted inside, as `lapkernel.tmLanguage.json` does. The
+  `.laplace` snapshots change, and the diff is reviewed.
+- **(b)** Leave it.
+
+**Recommendation: (a), but outside this plan.** "Changes to `.laplace`
+language features" is out of scope here, and it is a highlighting-only fix.
+
 
 ## Answered
 
