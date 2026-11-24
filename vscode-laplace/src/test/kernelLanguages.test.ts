@@ -102,3 +102,41 @@ test("the .laplace languages keep their own configuration", () => {
   assert.equal(lang("laplace").configuration, "./language-configuration.json");
   assert.equal(lang("laplacelib").configuration, "./language-configuration.json");
 });
+
+// TextMate silently ignores an include that points nowhere, so a renamed
+// rule in the .laplace grammar would quietly drop scopes from these two.
+type Rule = { include?: string; patterns?: Rule[]; [k: string]: unknown };
+const grammars = (
+  read("package.json") as {
+    contributes: { grammars: { language: string; scopeName: string; path: string }[] };
+  }
+).contributes.grammars;
+
+function includes(rule: unknown, out: string[] = []): string[] {
+  if (Array.isArray(rule)) rule.forEach((r) => includes(r, out));
+  else if (rule && typeof rule === "object") {
+    for (const [k, v] of Object.entries(rule)) {
+      if (k === "include" && typeof v === "string") out.push(v);
+      else includes(v, out);
+    }
+  }
+  return out;
+}
+
+for (const id of ["lapkernel", "lapsampler"]) {
+  test(`${id}: the grammar is registered and every include resolves`, () => {
+    const g = grammars.find((x) => x.language === id);
+    assert.ok(g, `no grammar for ${id}`);
+    assert.equal(g.scopeName, `source.${id}`);
+    const grammar = read(g.path) as { scopeName: string; repository: Record<string, Rule> };
+    assert.equal(grammar.scopeName, g.scopeName);
+    for (const inc of includes(grammar)) {
+      if (inc === "$self" || inc === "$base") continue;
+      const [scope, key] = inc.startsWith("#") ? [g.scopeName, inc.slice(1)] : inc.split("#");
+      const target = grammars.find((x) => x.scopeName === scope);
+      assert.ok(target, `${inc}: no grammar has scope ${scope}`);
+      const repo = (read(target.path) as { repository: Record<string, Rule> }).repository;
+      assert.ok(key && repo[key], `${inc}: ${scope} has no rule \`${key}\``);
+    }
+  });
+}

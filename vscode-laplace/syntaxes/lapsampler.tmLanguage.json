@@ -1,0 +1,220 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "lapsampler",
+  "scopeName": "source.lapsampler",
+  "fileTypes": [
+    "lapsampler"
+  ],
+  "comment": "A .lapsampler sampler definition. Built from laplace-sample/src/lapsampler/grammar.pest; see docs/editor/phase-0-report.md section 0.2.2. `library { import pkg }` is the same syntax as in .laplace, so it is included from source.laplace. Everything else is local.",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#sampler-header"
+    },
+    {
+      "include": "source.laplace#library-block"
+    },
+    {
+      "include": "#section-keywords"
+    },
+    {
+      "include": "#settings"
+    },
+    {
+      "include": "#block-ref"
+    },
+    {
+      "include": "#line-keywords"
+    },
+    {
+      "include": "#combinators"
+    },
+    {
+      "include": "#builtin-kernels"
+    },
+    {
+      "include": "#namespaced-kernel"
+    },
+    {
+      "include": "#path-kernel"
+    },
+    {
+      "include": "#arguments"
+    },
+    {
+      "include": "#booleans"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "source.laplace#function-call"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.lapsampler",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "name": "comment.line.double-slash.lapsampler",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "sampler-header": {
+      "match": "\\b(sampler)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.block.sampler.lapsampler"
+        },
+        "2": {
+          "name": "entity.name.type.sampler.lapsampler"
+        }
+      }
+    },
+    "section-keywords": {
+      "name": "keyword.control.block.lapsampler",
+      "match": "\\b(kernel|warmup|draws)\\b(?=\\s*\\{)"
+    },
+    "settings": {
+      "comment": "warmup { iterations = N; }  draws { iterations = N; thin = N; }",
+      "match": "\\b(iterations|thin)\\s*(=)(?!=)",
+      "captures": {
+        "1": {
+          "name": "variable.other.property.setting.lapsampler"
+        },
+        "2": {
+          "name": "keyword.operator.assignment.lapsampler"
+        }
+      }
+    },
+    "block-ref": {
+      "comment": "block(beta, sigma): the parameters a kernel line updates.",
+      "begin": "\\b(block)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.block.lapsampler"
+        },
+        "2": {
+          "name": "punctuation.section.parens.begin.lapsampler"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.parens.end.lapsampler"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "name": "variable.parameter.block.lapsampler",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        },
+        {
+          "include": "#punctuation"
+        }
+      ]
+    },
+    "line-keywords": {
+      "patterns": [
+        {
+          "comment": "`as <label>` names a block.",
+          "match": "\\b(as)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.as.lapsampler"
+            },
+            "2": {
+              "name": "entity.name.label.lapsampler"
+            }
+          }
+        },
+        {
+          "comment": "`rest : k` takes whatever the lines above left.",
+          "match": "\\b(rest)\\b(?=\\s*:)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.rest.lapsampler"
+            }
+          }
+        }
+      ]
+    },
+    "combinators": {
+      "name": "keyword.other.combinator.lapsampler",
+      "match": "\\b(seq|mix|repeat|adapt|on)\\b(?=\\s*\\()"
+    },
+    "builtin-kernels": {
+      "name": "support.function.builtin.kernel.lapsampler",
+      "match": "\\b(nuts|rwm|mala|hmc)\\b(?=\\s*\\()"
+    },
+    "namespaced-kernel": {
+      "comment": "pkg::kernel, with or without (settings).",
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(::)([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "entity.name.namespace.lapsampler"
+        },
+        "2": {
+          "name": "punctuation.accessor.double-colon.lapsampler"
+        },
+        "3": {
+          "name": "support.function.kernel.lapsampler"
+        }
+      }
+    },
+    "path-kernel": {
+      "comment": "A local .lapkernel, unquoted: ./, ../ or / up to ( ) , ; or whitespace. Comments are matched first, so // and /* never start a path.",
+      "name": "string.unquoted.path.lapsampler",
+      "match": "(?<![A-Za-z0-9_])(?:\\.\\.?/|/)[^()\\s,;]+"
+    },
+    "arguments": {
+      "comment": "name = value inside a kernel or combinator call.",
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(=)(?!=)",
+      "captures": {
+        "1": {
+          "name": "variable.parameter.lapsampler"
+        },
+        "2": {
+          "name": "keyword.operator.assignment.lapsampler"
+        }
+      }
+    },
+    "booleans": {
+      "name": "constant.language.boolean.lapsampler",
+      "match": "\\b(true|false)\\b"
+    },
+    "numbers": {
+      "name": "constant.numeric.lapsampler",
+      "match": "(?<![A-Za-z0-9_.])-?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.key-value.lapsampler",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.comma.lapsampler",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.statement.lapsampler",
+          "match": ";"
+        }
+      ]
+    }
+  }
+}

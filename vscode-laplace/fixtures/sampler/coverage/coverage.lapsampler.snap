@@ -1,0 +1,284 @@
+>// Coverage fixture: every token class of the .lapsampler grammar. It parses,
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>// but checks only in a project that has `langevin` installed and the two
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>// local kernel files; and on(...) is refused inside a kernel line. Grammar
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>// snapshot only.
+#^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>/* A block
+#^^ source.lapsampler comment.block.lapsampler
+#  ^^^^^^^^^ source.lapsampler comment.block.lapsampler
+>   comment. */
+#^^^^^^^^^^^^ source.lapsampler comment.block.lapsampler
+#            ^^ source.lapsampler comment.block.lapsampler
+>sampler coverage {
+#^^^^^^^ source.lapsampler keyword.control.block.sampler.lapsampler
+#       ^ source.lapsampler
+#        ^^^^^^^^ source.lapsampler entity.name.type.sampler.lapsampler
+#                ^^^ source.lapsampler
+>  library {
+#^^ source.lapsampler
+#  ^^^^^^^ source.lapsampler keyword.control.block.library.laplace
+#         ^ source.lapsampler
+#          ^ source.lapsampler punctuation.section.block.begin.laplace
+>    import langevin;
+#^^^^ source.lapsampler
+#    ^^^^^^ source.lapsampler keyword.control.import.laplace
+#          ^ source.lapsampler
+#           ^^^^^^^^ source.lapsampler entity.name.namespace.laplace
+#                   ^ source.lapsampler punctuation.terminator.statement.lapsampler
+>  }
+#^^^^ source.lapsampler
+>  kernel {
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+>    block(alpha)              : nuts(step_size = 0.1, target_accept = 0.9, max_depth = 8)
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#               ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                ^^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                    ^ source.lapsampler
+#                                     ^^^^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                              ^ source.lapsampler
+#                                               ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                ^ source.lapsampler
+#                                                 ^^^ source.lapsampler constant.numeric.lapsampler
+#                                                    ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                     ^ source.lapsampler
+#                                                      ^^^^^^^^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                                   ^ source.lapsampler
+#                                                                    ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                     ^ source.lapsampler
+#                                                                      ^^^ source.lapsampler constant.numeric.lapsampler
+#                                                                         ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                                          ^ source.lapsampler
+#                                                                           ^^^^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                                                    ^ source.lapsampler
+#                                                                                     ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                                      ^ source.lapsampler
+#                                                                                       ^ source.lapsampler constant.numeric.lapsampler
+#                                                                                        ^^ source.lapsampler
+>    block(beta, gamma) as bg  : adapt(langevin::mala, target_accept = 0.6);
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^ source.lapsampler variable.parameter.block.lapsampler
+#              ^ source.lapsampler punctuation.separator.comma.lapsampler
+#               ^ source.lapsampler
+#                ^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#                     ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                      ^ source.lapsampler
+#                       ^^ source.lapsampler keyword.other.as.lapsampler
+#                         ^ source.lapsampler
+#                          ^^ source.lapsampler entity.name.label.lapsampler
+#                            ^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                     ^ source.lapsampler
+#                                      ^^^^^^^^ source.lapsampler entity.name.namespace.lapsampler
+#                                              ^^ source.lapsampler punctuation.accessor.double-colon.lapsampler
+#                                                ^^^^ source.lapsampler support.function.kernel.lapsampler
+#                                                    ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                     ^ source.lapsampler
+#                                                      ^^^^^^^^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                                   ^ source.lapsampler
+#                                                                    ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                     ^ source.lapsampler
+#                                                                      ^^^ source.lapsampler constant.numeric.lapsampler
+#                                                                         ^ source.lapsampler
+#                                                                          ^ source.lapsampler punctuation.terminator.statement.lapsampler
+>    block(delta)              : seq(rwm(step_size = 1e-2), langevin::barker(eps = .5))
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#               ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                ^^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                   ^ source.lapsampler
+#                                    ^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                       ^ source.lapsampler
+#                                        ^^^^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                 ^ source.lapsampler
+#                                                  ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                   ^ source.lapsampler
+#                                                    ^^^^ source.lapsampler constant.numeric.lapsampler
+#                                                        ^ source.lapsampler
+#                                                         ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                          ^ source.lapsampler
+#                                                           ^^^^^^^^ source.lapsampler entity.name.namespace.lapsampler
+#                                                                   ^^ source.lapsampler punctuation.accessor.double-colon.lapsampler
+#                                                                     ^^^^^^ source.lapsampler support.function.kernel.lapsampler
+#                                                                           ^ source.lapsampler
+#                                                                            ^^^ source.lapsampler variable.parameter.lapsampler
+#                                                                               ^ source.lapsampler
+#                                                                                ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                                 ^ source.lapsampler
+#                                                                                  ^^ source.lapsampler constant.numeric.lapsampler
+#                                                                                    ^^^ source.lapsampler
+>    block(eps_sd)             : mix(0.7 : mala(), 0.3 : ./kernels/mine.lapkernel(eps = -1.5E+1))
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#                ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                 ^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                   ^ source.lapsampler
+#                                    ^^^ source.lapsampler constant.numeric.lapsampler
+#                                       ^ source.lapsampler
+#                                        ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                                         ^ source.lapsampler
+#                                          ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                              ^^ source.lapsampler
+#                                                ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                 ^ source.lapsampler
+#                                                  ^^^ source.lapsampler constant.numeric.lapsampler
+#                                                     ^ source.lapsampler
+#                                                      ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                                                       ^ source.lapsampler
+#                                                        ^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler string.unquoted.path.lapsampler
+#                                                                                ^ source.lapsampler
+#                                                                                 ^^^ source.lapsampler variable.parameter.lapsampler
+#                                                                                    ^ source.lapsampler
+#                                                                                     ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                                      ^ source.lapsampler
+#                                                                                       ^^^^^^^ source.lapsampler constant.numeric.lapsampler
+#                                                                                              ^^^ source.lapsampler
+>    block(zeta)               : repeat(3, hmc(steps = 10, jitter = false))
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^ source.lapsampler variable.parameter.block.lapsampler
+#              ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#               ^^^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                      ^ source.lapsampler
+#                                       ^ source.lapsampler constant.numeric.lapsampler
+#                                        ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                         ^ source.lapsampler
+#                                          ^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                             ^ source.lapsampler
+#                                              ^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                   ^ source.lapsampler
+#                                                    ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                     ^ source.lapsampler
+#                                                      ^^ source.lapsampler constant.numeric.lapsampler
+#                                                        ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                         ^ source.lapsampler
+#                                                          ^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                                ^ source.lapsampler
+#                                                                 ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                  ^ source.lapsampler
+#                                                                   ^^^^^ source.lapsampler constant.language.boolean.lapsampler
+#                                                                        ^^^ source.lapsampler
+>    block(eta)                : adapt(../shared/k.lapkernel)
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^ source.lapsampler variable.parameter.block.lapsampler
+#             ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#              ^^^^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                     ^ source.lapsampler
+#                                      ^^^^^^^^^^^^^^^^^^^^^ source.lapsampler string.unquoted.path.lapsampler
+#                                                           ^^ source.lapsampler
+>    block(theta)              : seq(on(block(iota), nuts()), rwm())
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#               ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                ^^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                   ^ source.lapsampler
+#                                    ^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                      ^ source.lapsampler
+#                                       ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#                                            ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#                                             ^^^^ source.lapsampler variable.parameter.block.lapsampler
+#                                                 ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                                                  ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                   ^ source.lapsampler
+#                                                    ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                                        ^^^ source.lapsampler
+#                                                           ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                            ^ source.lapsampler
+#                                                             ^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                                                ^^^^ source.lapsampler
+>    rest                      : seq(adapt(mala(), target_accept = 0.574), rwm())
+#^^^^ source.lapsampler
+#    ^^^^ source.lapsampler keyword.other.rest.lapsampler
+#        ^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler
+#                              ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                               ^ source.lapsampler
+#                                ^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                   ^ source.lapsampler
+#                                    ^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                         ^ source.lapsampler
+#                                          ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                              ^^ source.lapsampler
+#                                                ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                 ^ source.lapsampler
+#                                                  ^^^^^^^^^^^^^ source.lapsampler variable.parameter.lapsampler
+#                                                               ^ source.lapsampler
+#                                                                ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                                                 ^ source.lapsampler
+#                                                                  ^^^^^ source.lapsampler constant.numeric.lapsampler
+#                                                                       ^ source.lapsampler
+#                                                                        ^ source.lapsampler punctuation.separator.comma.lapsampler
+#                                                                         ^ source.lapsampler
+#                                                                          ^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                                                             ^^^^ source.lapsampler
+>  }
+#^^^^ source.lapsampler
+>  warmup { iterations = 1000; }
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+#           ^^^^^^^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                     ^ source.lapsampler
+#                      ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                       ^ source.lapsampler
+#                        ^^^^ source.lapsampler constant.numeric.lapsampler
+#                            ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                             ^^^ source.lapsampler
+>  draws  { iterations = 2000; thin = 2; }
+#^^ source.lapsampler
+#  ^^^^^ source.lapsampler keyword.control.block.lapsampler
+#       ^^^^ source.lapsampler
+#           ^^^^^^^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                     ^ source.lapsampler
+#                      ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                       ^ source.lapsampler
+#                        ^^^^ source.lapsampler constant.numeric.lapsampler
+#                            ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                             ^ source.lapsampler
+#                              ^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                                  ^ source.lapsampler
+#                                   ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                                    ^ source.lapsampler
+#                                     ^ source.lapsampler constant.numeric.lapsampler
+#                                      ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                                       ^^^ source.lapsampler
+>}
+#^^ source.lapsampler
+>

@@ -1,0 +1,230 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "lapkernel",
+  "scopeName": "source.lapkernel",
+  "fileTypes": [
+    "lapkernel"
+  ],
+  "comment": "A .lapkernel sampler kernel. Built from laplace-sample/src/lapkernel/grammar.pest and the built-in registry (lapkernel/builtins.rs). See docs/editor/phase-0-report.md section 0.2.1 for the token inventory. Rules shared exactly with .laplace are included from source.laplace (operators, function calls). Where the token sets differ, the rules are local: the kernel language has fewer types and control keywords, no pi/e constants, and /* */ comments. Doc comments are local too, because the .laplace rule leaves a doc line's text unscoped.",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#kernel-header"
+    },
+    {
+      "include": "#block-keywords"
+    },
+    {
+      "include": "#adapt-tag"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#bounds"
+    },
+    {
+      "include": "#control-keywords"
+    },
+    {
+      "include": "#terminals"
+    },
+    {
+      "include": "#context-functions"
+    },
+    {
+      "include": "#builtin-functions"
+    },
+    {
+      "include": "source.laplace#function-call"
+    },
+    {
+      "include": "#context-values"
+    },
+    {
+      "include": "#tuple-index"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#elementwise-operators"
+    },
+    {
+      "include": "source.laplace#operators"
+    },
+    {
+      "include": "#conditional-bar"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.lapkernel",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "comment": "//@laplace marks the file as a laplace kernel.",
+          "name": "comment.line.double-slash.documentation.lapkernel",
+          "match": "(//)\\s*(@laplace)\\b.*$",
+          "captures": {
+            "2": {
+              "name": "storage.type.annotation.lapkernel"
+            }
+          }
+        },
+        {
+          "comment": "//@param <tuning value> <text>",
+          "name": "comment.line.double-slash.documentation.lapkernel",
+          "match": "(//)\\s*(@param)\\b(?:\\s+([A-Za-z_][A-Za-z0-9_]*))?.*$",
+          "captures": {
+            "2": {
+              "name": "keyword.other.doctag.lapkernel"
+            },
+            "3": {
+              "name": "variable.parameter.lapkernel"
+            }
+          }
+        },
+        {
+          "comment": "//@brief <text>. Other //@ tags are ignored by the parser, so they are plain comments.",
+          "name": "comment.line.double-slash.documentation.lapkernel",
+          "match": "(//)\\s*(@brief)\\b.*$",
+          "captures": {
+            "2": {
+              "name": "keyword.other.doctag.lapkernel"
+            }
+          }
+        },
+        {
+          "name": "comment.line.double-slash.lapkernel",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "kernel-header": {
+      "match": "\\b(kernel)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": {
+          "name": "keyword.control.block.kernel.lapkernel"
+        },
+        "2": {
+          "name": "entity.name.type.kernel.lapkernel"
+        }
+      }
+    },
+    "block-keywords": {
+      "name": "keyword.control.block.lapkernel",
+      "match": "\\b(tuning|state|init|functions|step)\\b(?=\\s*\\{)"
+    },
+    "adapt-tag": {
+      "comment": "@adapt(step_size, target_accept = 0.574) or @adapt(metric), after a tuning declaration.",
+      "begin": "(@adapt)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.type.annotation.adapt.lapkernel"
+        },
+        "2": {
+          "name": "punctuation.definition.annotation.begin.lapkernel"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.annotation.end.lapkernel"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "name": "constant.language.adapt-kind.lapkernel",
+          "match": "\\b(step_size|metric)\\b(?!\\s*=)"
+        },
+        {
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?==(?!=))",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.adapt.lapkernel"
+            }
+          }
+        },
+        {
+          "include": "#parens"
+        },
+        {
+          "include": "$self"
+        }
+      ]
+    },
+    "parens": {
+      "begin": "\\(",
+      "end": "\\)",
+      "patterns": [
+        {
+          "include": "$self"
+        }
+      ]
+    },
+    "types": {
+      "name": "storage.type.lapkernel",
+      "match": "\\b(int|real|vector|matrix|tuple|void)\\b"
+    },
+    "bounds": {
+      "name": "storage.modifier.bound.lapkernel",
+      "match": "\\b(lower|upper)\\b(?=\\s*=)"
+    },
+    "control-keywords": {
+      "name": "keyword.control.lapkernel",
+      "match": "\\b(if|else|for|in|while|return)\\b"
+    },
+    "terminals": {
+      "comment": "propose(q_new, c) and move(q_new) end a step: terminal statements, not ordinary calls.",
+      "name": "keyword.control.terminal.lapkernel",
+      "match": "\\b(propose|move)\\b(?=\\s*\\()"
+    },
+    "context-functions": {
+      "name": "support.function.context.lapkernel",
+      "match": "\\b(log_density_grad|log_density|leapfrog)\\b(?=\\s*\\()"
+    },
+    "builtin-functions": {
+      "name": "support.function.builtin.lapkernel",
+      "match": "\\b(std_normal_rng|normal_rng|uniform_rng|normal_lpdf|std_normal_lpdf|dot_product|sum|rep_vector|exp|log|sqrt|square)\\b(?=\\s*\\()"
+    },
+    "context-values": {
+      "name": "variable.language.context.lapkernel",
+      "match": "\\b(q|lp|grad|dim|metric)\\b"
+    },
+    "tuple-index": {
+      "match": "(?<=[A-Za-z0-9_)\\]])(\\.)([0-9]+)",
+      "captures": {
+        "1": {
+          "name": "punctuation.accessor.lapkernel"
+        },
+        "2": {
+          "name": "constant.numeric.index.lapkernel"
+        }
+      }
+    },
+    "numbers": {
+      "comment": "An integer followed by .* or ./ is an integer and an elementwise operator (2.*x), as in the pest grammar.",
+      "name": "constant.numeric.lapkernel",
+      "match": "(?<![A-Za-z0-9_.])(?:[0-9]+(?:\\.(?![*/])[0-9]*)?(?:[eE][+-]?[0-9]+)?|\\.[0-9]+(?:[eE][+-]?[0-9]+)?)"
+    },
+    "conditional-bar": {
+      "comment": "normal_lpdf(x | mu, sigma)",
+      "name": "keyword.operator.conditional.lapkernel",
+      "match": "\\|(?!\\|)"
+    },
+    "elementwise-operators": {
+      "comment": ".* and ./ (source.laplace#operators has only their compound-assignment forms).",
+      "name": "keyword.operator.elementwise.lapkernel",
+      "match": "\\.\\*|\\./"
+    }
+  }
+}

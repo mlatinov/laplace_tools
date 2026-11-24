@@ -1,0 +1,27 @@
+>//@laplace
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel storage.type.annotation.lapkernel
+>//@brief Coverage fixture: a direct kernel, ending in move()
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>kernel stay {
+#^^^^^^ source.lapkernel keyword.control.block.kernel.lapkernel
+#      ^ source.lapkernel
+#       ^^^^ source.lapkernel entity.name.type.kernel.lapkernel
+#           ^^^ source.lapkernel
+>  step {
+#^^ source.lapkernel
+#  ^^^^ source.lapkernel keyword.control.block.lapkernel
+#      ^^^ source.lapkernel
+>    move(q);
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel keyword.control.terminal.lapkernel
+#        ^ source.lapkernel
+#         ^ source.lapkernel variable.language.context.lapkernel
+#          ^^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>}
+#^^ source.lapkernel
+>

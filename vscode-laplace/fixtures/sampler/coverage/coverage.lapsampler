@@ -1,0 +1,23 @@
+// Coverage fixture: every token class of the .lapsampler grammar. It parses,
+// but checks only in a project that has `langevin` installed and the two
+// local kernel files; and on(...) is refused inside a kernel line. Grammar
+// snapshot only.
+/* A block
+   comment. */
+sampler coverage {
+  library {
+    import langevin;
+  }
+  kernel {
+    block(alpha)              : nuts(step_size = 0.1, target_accept = 0.9, max_depth = 8)
+    block(beta, gamma) as bg  : adapt(langevin::mala, target_accept = 0.6);
+    block(delta)              : seq(rwm(step_size = 1e-2), langevin::barker(eps = .5))
+    block(eps_sd)             : mix(0.7 : mala(), 0.3 : ./kernels/mine.lapkernel(eps = -1.5E+1))
+    block(zeta)               : repeat(3, hmc(steps = 10, jitter = false))
+    block(eta)                : adapt(../shared/k.lapkernel)
+    block(theta)              : seq(on(block(iota), nuts()), rwm())
+    rest                      : seq(adapt(mala(), target_accept = 0.574), rwm())
+  }
+  warmup { iterations = 1000; }
+  draws  { iterations = 2000; thin = 2; }
+}

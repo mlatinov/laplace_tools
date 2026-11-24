@@ -93,6 +93,16 @@
         "language": "laplacelib",
         "scopeName": "source.laplacelib",
         "path": "./syntaxes/laplacelib.tmLanguage.json"
+      },
+      {
+        "language": "lapkernel",
+        "scopeName": "source.lapkernel",
+        "path": "./syntaxes/lapkernel.tmLanguage.json"
+      },
+      {
+        "language": "lapsampler",
+        "scopeName": "source.lapsampler",
+        "path": "./syntaxes/lapsampler.tmLanguage.json"
       }
     ],
     "snippets": [
@@ -243,8 +253,8 @@
     "watch": "node esbuild.js --watch",
     "check": "tsc --noEmit -p ./",
     "test:unit": "node esbuild.js --tests && node --test out/test",
-    "test:grammar": "vscode-tmgrammar-snap \"fixtures/**/*.laplace\" \"fixtures/**/*.laplacelib\"",
-    "test:grammar:update": "vscode-tmgrammar-snap -u \"fixtures/**/*.laplace\" \"fixtures/**/*.laplacelib\"",
+    "test:grammar": "vscode-tmgrammar-snap \"fixtures/**/*.laplace\" \"fixtures/**/*.laplacelib\" \"fixtures/**/*.lapkernel\" \"fixtures/**/*.lapsampler\"",
+    "test:grammar:update": "vscode-tmgrammar-snap -u \"fixtures/**/*.laplace\" \"fixtures/**/*.laplacelib\" \"fixtures/**/*.lapkernel\" \"fixtures/**/*.lapsampler\"",
     "test": "npm run check && npm run test:unit && npm run test:grammar && npm run test:bundle",
     "package": "npm run compile -- --production && npx --yes @vscode/vsce package --no-dependencies",
     "test:bundle": "npm run compile && node scripts/check-bundle.js"

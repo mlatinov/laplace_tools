@@ -1,0 +1,64 @@
+>// Phase 3.7: NUTS on one block, adapted MALA on the other, on a target whose
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>// blocks are strongly correlated (tests/targets/corr_gauss_split.stan).
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>sampler hybrid_corr {
+#^^^^^^^ source.lapsampler keyword.control.block.sampler.lapsampler
+#       ^ source.lapsampler
+#        ^^^^^^^^^^^ source.lapsampler entity.name.type.sampler.lapsampler
+#                   ^^^ source.lapsampler
+>  kernel {
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+>    block(a) : nuts()
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^ source.lapsampler variable.parameter.block.lapsampler
+#           ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#            ^ source.lapsampler
+#             ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#              ^ source.lapsampler
+#               ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                   ^^^ source.lapsampler
+>    block(b) : adapt(mala())
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^ source.lapsampler variable.parameter.block.lapsampler
+#           ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#            ^ source.lapsampler
+#             ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#              ^ source.lapsampler
+#               ^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                    ^ source.lapsampler
+#                     ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                         ^^^^ source.lapsampler
+>  }
+#^^^^ source.lapsampler
+>  warmup { iterations = 1000; }
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+#           ^^^^^^^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                     ^ source.lapsampler
+#                      ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                       ^ source.lapsampler
+#                        ^^^^ source.lapsampler constant.numeric.lapsampler
+#                            ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                             ^^^ source.lapsampler
+>  draws  { iterations = 1000; }
+#^^ source.lapsampler
+#  ^^^^^ source.lapsampler keyword.control.block.lapsampler
+#       ^^^^ source.lapsampler
+#           ^^^^^^^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                     ^ source.lapsampler
+#                      ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                       ^ source.lapsampler
+#                        ^^^^ source.lapsampler constant.numeric.lapsampler
+#                            ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                             ^^^ source.lapsampler
+>}
+#^^ source.lapsampler
+>

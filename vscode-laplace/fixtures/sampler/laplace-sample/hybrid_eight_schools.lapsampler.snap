@@ -1,0 +1,71 @@
+>// Phase 3.7: non-centred eight schools, NUTS on the school effects,
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>// adapted MALA on the hyperparameters.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>sampler hybrid_eight_schools {
+#^^^^^^^ source.lapsampler keyword.control.block.sampler.lapsampler
+#       ^ source.lapsampler
+#        ^^^^^^^^^^^^^^^^^^^^ source.lapsampler entity.name.type.sampler.lapsampler
+#                            ^^^ source.lapsampler
+>  kernel {
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+>    block(theta_tilde)       : nuts()
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^^^^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#                     ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                      ^^^^^^^ source.lapsampler
+#                             ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                              ^ source.lapsampler
+#                               ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                   ^^^ source.lapsampler
+>    block(mu, tau) as hyper  : adapt(mala())
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^ source.lapsampler variable.parameter.block.lapsampler
+#            ^ source.lapsampler punctuation.separator.comma.lapsampler
+#             ^ source.lapsampler
+#              ^^^ source.lapsampler variable.parameter.block.lapsampler
+#                 ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                  ^ source.lapsampler
+#                   ^^ source.lapsampler keyword.other.as.lapsampler
+#                     ^ source.lapsampler
+#                      ^^^^^ source.lapsampler entity.name.label.lapsampler
+#                           ^^ source.lapsampler
+#                             ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                              ^ source.lapsampler
+#                               ^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                    ^ source.lapsampler
+#                                     ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                         ^^^^ source.lapsampler
+>  }
+#^^^^ source.lapsampler
+>  warmup { iterations = 1000; }
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+#           ^^^^^^^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                     ^ source.lapsampler
+#                      ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                       ^ source.lapsampler
+#                        ^^^^ source.lapsampler constant.numeric.lapsampler
+#                            ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                             ^^^ source.lapsampler
+>  draws  { iterations = 1000; }
+#^^ source.lapsampler
+#  ^^^^^ source.lapsampler keyword.control.block.lapsampler
+#       ^^^^ source.lapsampler
+#           ^^^^^^^^^^ source.lapsampler variable.other.property.setting.lapsampler
+#                     ^ source.lapsampler
+#                      ^ source.lapsampler keyword.operator.assignment.lapsampler
+#                       ^ source.lapsampler
+#                        ^^^^ source.lapsampler constant.numeric.lapsampler
+#                            ^ source.lapsampler punctuation.terminator.statement.lapsampler
+#                             ^^^ source.lapsampler
+>}
+#^^ source.lapsampler
+>

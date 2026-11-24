@@ -1,0 +1,41 @@
+>// Phase 3 extra check: a constrained parameter (a simplex) in a block.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler comment.line.double-slash.lapsampler
+>sampler hybrid_simplex {
+#^^^^^^^ source.lapsampler keyword.control.block.sampler.lapsampler
+#       ^ source.lapsampler
+#        ^^^^^^^^^^^^^^ source.lapsampler entity.name.type.sampler.lapsampler
+#                      ^^^ source.lapsampler
+>  kernel {
+#^^ source.lapsampler
+#  ^^^^^^ source.lapsampler keyword.control.block.lapsampler
+#        ^^^ source.lapsampler
+>    block(theta) as simplex : adapt(./../../kernels/mala.lapkernel)
+#^^^^ source.lapsampler
+#    ^^^^^ source.lapsampler keyword.other.block.lapsampler
+#         ^ source.lapsampler punctuation.section.parens.begin.lapsampler
+#          ^^^^^ source.lapsampler variable.parameter.block.lapsampler
+#               ^ source.lapsampler punctuation.section.parens.end.lapsampler
+#                ^ source.lapsampler
+#                 ^^ source.lapsampler keyword.other.as.lapsampler
+#                   ^ source.lapsampler
+#                    ^^^^^^^ source.lapsampler entity.name.label.lapsampler
+#                           ^ source.lapsampler
+#                            ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                             ^ source.lapsampler
+#                              ^^^^^ source.lapsampler keyword.other.combinator.lapsampler
+#                                   ^ source.lapsampler
+#                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapsampler string.unquoted.path.lapsampler
+#                                                                  ^^ source.lapsampler
+>    rest                    : nuts()
+#^^^^ source.lapsampler
+#    ^^^^ source.lapsampler keyword.other.rest.lapsampler
+#        ^^^^^^^^^^^^^^^^^^^^ source.lapsampler
+#                            ^ source.lapsampler punctuation.separator.key-value.lapsampler
+#                             ^ source.lapsampler
+#                              ^^^^ source.lapsampler support.function.builtin.kernel.lapsampler
+#                                  ^^^ source.lapsampler
+>  }
+#^^^^ source.lapsampler
+>}
+#^^ source.lapsampler
+>

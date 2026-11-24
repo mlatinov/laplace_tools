@@ -1,0 +1,27 @@
+//@laplace
+//@brief Metropolis-adjusted Langevin algorithm with a diagonal metric
+//@param eps Step size (adapted toward 0.574 acceptance)
+//@param m Diagonal inverse metric (adapted in warmup)
+//
+// One Langevin step, q_new ~ N(q + eps^2/2 * m .* grad, eps^2 * m), then a
+// Metropolis-Hastings correction. The same kernel as laplace-sample's
+// built-in `mala` (it is the .lapkernel twin that reproduces it bit for bit).
+//
+// The correction is the difference of the two Gaussian quadratic forms,
+// summed element by element: normal_lpdf(q | mu_bwd, sd) -
+// normal_lpdf(q_new | mu_fwd, sd) is the same mathematics, but its
+// constants cancel only to rounding.
+kernel mala {
+  tuning {
+    real<lower=0> eps = 1 @adapt(step_size, target_accept = 0.574);
+    vector<lower=0>[dim] m = rep_vector(1, dim) @adapt(metric);
+  }
+  step {
+    vector[dim] mu_fwd = q + 0.5 * eps^2 * m .* grad;
+    vector[dim] q_new = mu_fwd + eps * sqrt(m) .* std_normal_rng(dim);
+    (real lp_new, vector[dim] g_new) = log_density_grad(q_new);
+    vector[dim] mu_bwd = q_new + 0.5 * eps^2 * m .* g_new;
+    vector[dim] two_var = 2 * eps^2 * m;
+    propose(q_new, sum(square(q_new - mu_fwd) ./ two_var) - sum(square(q - mu_bwd) ./ two_var));
+  }
+}

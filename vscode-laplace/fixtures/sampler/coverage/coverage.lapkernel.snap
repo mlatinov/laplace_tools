@@ -1,0 +1,412 @@
+>//@laplace
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel storage.type.annotation.lapkernel
+>//@brief Coverage fixture: every token class of the .lapkernel grammar
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>//@param eps Step size
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#         ^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel variable.parameter.lapkernel
+#            ^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>//@param n_leap Leapfrog steps
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#         ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel variable.parameter.lapkernel
+#               ^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>//@note other doc tags are ignored by the parser: a plain comment
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>/* A block comment,
+#^^ source.lapkernel comment.block.lapkernel
+#  ^^^^^^^^^^^^^^^^^^ source.lapkernel comment.block.lapkernel
+>   over two lines. */
+#^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.block.lapkernel
+#                   ^^ source.lapkernel comment.block.lapkernel
+>kernel coverage {
+#^^^^^^ source.lapkernel keyword.control.block.kernel.lapkernel
+#      ^ source.lapkernel
+#       ^^^^^^^^ source.lapkernel entity.name.type.kernel.lapkernel
+#               ^^^ source.lapkernel
+>  tuning {
+#^^ source.lapkernel
+#  ^^^^^^ source.lapkernel keyword.control.block.lapkernel
+#        ^^^ source.lapkernel
+>    real<lower=0> eps = 0.1 @adapt(step_size, target_accept = 0.65);
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^ source.lapkernel keyword.operator.laplace
+#         ^^^^^ source.lapkernel storage.modifier.bound.lapkernel
+#              ^ source.lapkernel keyword.operator.laplace
+#               ^ source.lapkernel constant.numeric.lapkernel
+#                ^ source.lapkernel keyword.operator.laplace
+#                 ^^^^^ source.lapkernel
+#                      ^ source.lapkernel keyword.operator.laplace
+#                       ^ source.lapkernel
+#                        ^^^ source.lapkernel constant.numeric.lapkernel
+#                           ^ source.lapkernel
+#                            ^^^^^^ source.lapkernel storage.type.annotation.adapt.lapkernel
+#                                  ^ source.lapkernel punctuation.definition.annotation.begin.lapkernel
+#                                   ^^^^^^^^^ source.lapkernel constant.language.adapt-kind.lapkernel
+#                                            ^^ source.lapkernel
+#                                              ^^^^^^^^^^^^^ source.lapkernel variable.parameter.adapt.lapkernel
+#                                                           ^ source.lapkernel
+#                                                            ^ source.lapkernel keyword.operator.laplace
+#                                                             ^ source.lapkernel
+#                                                              ^^^^ source.lapkernel constant.numeric.lapkernel
+#                                                                  ^ source.lapkernel punctuation.definition.annotation.end.lapkernel
+#                                                                   ^^ source.lapkernel
+>    vector<lower=0>[dim] m = rep_vector(1, dim) @adapt(metric);
+#^^^^ source.lapkernel
+#    ^^^^^^ source.lapkernel storage.type.lapkernel
+#          ^ source.lapkernel keyword.operator.laplace
+#           ^^^^^ source.lapkernel storage.modifier.bound.lapkernel
+#                ^ source.lapkernel keyword.operator.laplace
+#                 ^ source.lapkernel constant.numeric.lapkernel
+#                  ^ source.lapkernel keyword.operator.laplace
+#                   ^ source.lapkernel
+#                    ^^^ source.lapkernel variable.language.context.lapkernel
+#                       ^^^^ source.lapkernel
+#                           ^ source.lapkernel keyword.operator.laplace
+#                            ^ source.lapkernel
+#                             ^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                       ^ source.lapkernel
+#                                        ^ source.lapkernel constant.numeric.lapkernel
+#                                         ^^ source.lapkernel
+#                                           ^^^ source.lapkernel variable.language.context.lapkernel
+#                                              ^^ source.lapkernel
+#                                                ^^^^^^ source.lapkernel storage.type.annotation.adapt.lapkernel
+#                                                      ^ source.lapkernel punctuation.definition.annotation.begin.lapkernel
+#                                                       ^^^^^^ source.lapkernel constant.language.adapt-kind.lapkernel
+#                                                             ^ source.lapkernel punctuation.definition.annotation.end.lapkernel
+#                                                              ^^ source.lapkernel
+>    int<lower=1, upper=100> n_leap = 10;
+#^^^^ source.lapkernel
+#    ^^^ source.lapkernel storage.type.lapkernel
+#       ^ source.lapkernel keyword.operator.laplace
+#        ^^^^^ source.lapkernel storage.modifier.bound.lapkernel
+#             ^ source.lapkernel keyword.operator.laplace
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^^ source.lapkernel
+#                 ^^^^^ source.lapkernel storage.modifier.bound.lapkernel
+#                      ^ source.lapkernel keyword.operator.laplace
+#                       ^^^ source.lapkernel constant.numeric.lapkernel
+#                          ^ source.lapkernel keyword.operator.laplace
+#                           ^^^^^^^^ source.lapkernel
+#                                   ^ source.lapkernel keyword.operator.laplace
+#                                    ^ source.lapkernel
+#                                     ^^ source.lapkernel constant.numeric.lapkernel
+#                                       ^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>  state {
+#^^ source.lapkernel
+#  ^^^^^ source.lapkernel keyword.control.block.lapkernel
+#       ^^^ source.lapkernel
+>    real last_lp;
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^^^^^^^^^^ source.lapkernel
+>    matrix[2, 2] scratch;
+#^^^^ source.lapkernel
+#    ^^^^^^ source.lapkernel storage.type.lapkernel
+#          ^ source.lapkernel
+#           ^ source.lapkernel constant.numeric.lapkernel
+#            ^^ source.lapkernel
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^^^^^^^^^^^ source.lapkernel
+>    tuple(real, int) pair;
+#^^^^ source.lapkernel
+#    ^^^^^ source.lapkernel storage.type.lapkernel
+#         ^ source.lapkernel
+#          ^^^^ source.lapkernel storage.type.lapkernel
+#              ^^ source.lapkernel
+#                ^^^ source.lapkernel storage.type.lapkernel
+#                   ^^^^^^^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>  init {
+#^^ source.lapkernel
+#  ^^^^ source.lapkernel keyword.control.block.lapkernel
+#      ^^^ source.lapkernel
+>    last_lp = 0;
+#^^^^^^^^^^^^ source.lapkernel
+#            ^ source.lapkernel keyword.operator.laplace
+#             ^ source.lapkernel
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>  functions {
+#^^ source.lapkernel
+#  ^^^^^^^^^ source.lapkernel keyword.control.block.lapkernel
+#           ^^^ source.lapkernel
+>    real half(real x) {
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^ source.lapkernel
+#         ^^^^ source.lapkernel entity.name.function.laplace
+#             ^ source.lapkernel
+#              ^^^^ source.lapkernel storage.type.lapkernel
+#                  ^^^^^^ source.lapkernel
+>      return x / 2;
+#^^^^^^ source.lapkernel
+#      ^^^^^^ source.lapkernel keyword.control.lapkernel
+#            ^^^ source.lapkernel
+#               ^ source.lapkernel keyword.operator.laplace
+#                ^ source.lapkernel
+#                 ^ source.lapkernel constant.numeric.lapkernel
+#                  ^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>  step {
+#^^ source.lapkernel
+#  ^^^^ source.lapkernel keyword.control.block.lapkernel
+#      ^^^ source.lapkernel
+>    vector[dim] p = sqrt(metric) .* std_normal_rng(dim);
+#^^^^ source.lapkernel
+#    ^^^^^^ source.lapkernel storage.type.lapkernel
+#          ^ source.lapkernel
+#           ^^^ source.lapkernel variable.language.context.lapkernel
+#              ^^^^ source.lapkernel
+#                  ^ source.lapkernel keyword.operator.laplace
+#                   ^ source.lapkernel
+#                    ^^^^ source.lapkernel support.function.builtin.lapkernel
+#                        ^ source.lapkernel
+#                         ^^^^^^ source.lapkernel variable.language.context.lapkernel
+#                               ^^ source.lapkernel
+#                                 ^^ source.lapkernel keyword.operator.elementwise.lapkernel
+#                                   ^ source.lapkernel
+#                                    ^^^^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                  ^ source.lapkernel
+#                                                   ^^^ source.lapkernel variable.language.context.lapkernel
+#                                                      ^^^ source.lapkernel
+>    (vector[dim] q_new, vector[dim] p_new, real lp_new, vector[dim] g_new) = leapfrog(q, p, eps, n_leap, m);
+#^^^^^ source.lapkernel
+#     ^^^^^^ source.lapkernel storage.type.lapkernel
+#           ^ source.lapkernel
+#            ^^^ source.lapkernel variable.language.context.lapkernel
+#               ^^^^^^^^^ source.lapkernel
+#                        ^^^^^^ source.lapkernel storage.type.lapkernel
+#                              ^ source.lapkernel
+#                               ^^^ source.lapkernel variable.language.context.lapkernel
+#                                  ^^^^^^^^^ source.lapkernel
+#                                           ^^^^ source.lapkernel storage.type.lapkernel
+#                                               ^^^^^^^^^ source.lapkernel
+#                                                        ^^^^^^ source.lapkernel storage.type.lapkernel
+#                                                              ^ source.lapkernel
+#                                                               ^^^ source.lapkernel variable.language.context.lapkernel
+#                                                                  ^^^^^^^^^ source.lapkernel
+#                                                                           ^ source.lapkernel keyword.operator.laplace
+#                                                                            ^ source.lapkernel
+#                                                                             ^^^^^^^^ source.lapkernel support.function.context.lapkernel
+#                                                                                     ^ source.lapkernel
+#                                                                                      ^ source.lapkernel variable.language.context.lapkernel
+#                                                                                       ^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel
+>    real h = lp_new - lp + half(dot_product(p ./ m, p) - dot_product(p_new ./ m, p_new));
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^^^ source.lapkernel
+#           ^ source.lapkernel keyword.operator.laplace
+#            ^^^^^^^^ source.lapkernel
+#                    ^ source.lapkernel keyword.operator.laplace
+#                     ^ source.lapkernel
+#                      ^^ source.lapkernel variable.language.context.lapkernel
+#                        ^ source.lapkernel
+#                         ^ source.lapkernel keyword.operator.laplace
+#                          ^ source.lapkernel
+#                           ^^^^ source.lapkernel entity.name.function.laplace
+#                               ^ source.lapkernel
+#                                ^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                           ^^^ source.lapkernel
+#                                              ^^ source.lapkernel keyword.operator.elementwise.lapkernel
+#                                                ^^^^^^^ source.lapkernel
+#                                                       ^ source.lapkernel keyword.operator.laplace
+#                                                        ^ source.lapkernel
+#                                                         ^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                    ^^^^^^^ source.lapkernel
+#                                                                           ^^ source.lapkernel keyword.operator.elementwise.lapkernel
+#                                                                             ^^^^^^^^^^^^^ source.lapkernel
+>    int k = 0;
+#^^^^ source.lapkernel
+#    ^^^ source.lapkernel storage.type.lapkernel
+#       ^^^ source.lapkernel
+#          ^ source.lapkernel keyword.operator.laplace
+#           ^ source.lapkernel
+#            ^ source.lapkernel constant.numeric.lapkernel
+#             ^^ source.lapkernel
+>    while (k < 3 && !(h > 1e3)) {
+#^^^^ source.lapkernel
+#    ^^^^^ source.lapkernel keyword.control.lapkernel
+#         ^^^^ source.lapkernel
+#             ^ source.lapkernel keyword.operator.laplace
+#              ^ source.lapkernel
+#               ^ source.lapkernel constant.numeric.lapkernel
+#                ^ source.lapkernel
+#                 ^^ source.lapkernel keyword.operator.laplace
+#                   ^ source.lapkernel
+#                    ^ source.lapkernel keyword.operator.laplace
+#                     ^^^ source.lapkernel
+#                        ^ source.lapkernel keyword.operator.laplace
+#                         ^ source.lapkernel
+#                          ^^^ source.lapkernel constant.numeric.lapkernel
+#                             ^^^^^ source.lapkernel
+>      k += 1;
+#^^^^^^^^ source.lapkernel
+#        ^^ source.lapkernel keyword.operator.laplace
+#          ^ source.lapkernel
+#           ^ source.lapkernel constant.numeric.lapkernel
+#            ^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>    if (k % 2 == 0 || h <= -1.5e-2) {
+#^^^^ source.lapkernel
+#    ^^ source.lapkernel keyword.control.lapkernel
+#      ^^^^ source.lapkernel
+#          ^ source.lapkernel keyword.operator.laplace
+#           ^ source.lapkernel
+#            ^ source.lapkernel constant.numeric.lapkernel
+#             ^ source.lapkernel
+#              ^^ source.lapkernel keyword.operator.laplace
+#                ^ source.lapkernel
+#                 ^ source.lapkernel constant.numeric.lapkernel
+#                  ^ source.lapkernel
+#                   ^^ source.lapkernel keyword.operator.laplace
+#                     ^^^ source.lapkernel
+#                        ^^ source.lapkernel keyword.operator.laplace
+#                          ^ source.lapkernel
+#                           ^ source.lapkernel keyword.operator.laplace
+#                            ^^^^^^ source.lapkernel constant.numeric.lapkernel
+#                                  ^^^^ source.lapkernel
+>      h = h + normal_lpdf(1.0 | 0, 1) - std_normal_lpdf(0.5) + 0 * uniform_rng(0, 1) * normal_rng(0, 1);
+#^^^^^^^^ source.lapkernel
+#        ^ source.lapkernel keyword.operator.laplace
+#         ^^^ source.lapkernel
+#            ^ source.lapkernel keyword.operator.laplace
+#             ^ source.lapkernel
+#              ^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                         ^ source.lapkernel
+#                          ^^^ source.lapkernel constant.numeric.lapkernel
+#                             ^ source.lapkernel
+#                              ^ source.lapkernel keyword.operator.conditional.lapkernel
+#                               ^ source.lapkernel
+#                                ^ source.lapkernel constant.numeric.lapkernel
+#                                 ^^ source.lapkernel
+#                                   ^ source.lapkernel constant.numeric.lapkernel
+#                                    ^^ source.lapkernel
+#                                      ^ source.lapkernel keyword.operator.laplace
+#                                       ^ source.lapkernel
+#                                        ^^^^^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                       ^ source.lapkernel
+#                                                        ^^^ source.lapkernel constant.numeric.lapkernel
+#                                                           ^^ source.lapkernel
+#                                                             ^ source.lapkernel keyword.operator.laplace
+#                                                              ^ source.lapkernel
+#                                                               ^ source.lapkernel constant.numeric.lapkernel
+#                                                                ^ source.lapkernel
+#                                                                 ^ source.lapkernel keyword.operator.laplace
+#                                                                  ^ source.lapkernel
+#                                                                   ^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                              ^ source.lapkernel
+#                                                                               ^ source.lapkernel constant.numeric.lapkernel
+#                                                                                ^^ source.lapkernel
+#                                                                                  ^ source.lapkernel constant.numeric.lapkernel
+#                                                                                   ^^ source.lapkernel
+#                                                                                     ^ source.lapkernel keyword.operator.laplace
+#                                                                                      ^ source.lapkernel
+#                                                                                       ^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                                                 ^ source.lapkernel
+#                                                                                                  ^ source.lapkernel constant.numeric.lapkernel
+#                                                                                                   ^^ source.lapkernel
+#                                                                                                     ^ source.lapkernel constant.numeric.lapkernel
+#                                                                                                      ^^^ source.lapkernel
+>    } else {
+#^^^^^^ source.lapkernel
+#      ^^^^ source.lapkernel keyword.control.lapkernel
+#          ^^^ source.lapkernel
+>      h -= exp(log(sqrt(square(2.)))) + .5 - log_density(q_new) + sum(grad - g_new) ^ 2;
+#^^^^^^^^ source.lapkernel
+#        ^^ source.lapkernel keyword.operator.laplace
+#          ^ source.lapkernel
+#           ^^^ source.lapkernel support.function.builtin.lapkernel
+#              ^ source.lapkernel
+#               ^^^ source.lapkernel support.function.builtin.lapkernel
+#                  ^ source.lapkernel
+#                   ^^^^ source.lapkernel support.function.builtin.lapkernel
+#                       ^ source.lapkernel
+#                        ^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                              ^ source.lapkernel
+#                               ^^ source.lapkernel constant.numeric.lapkernel
+#                                 ^^^^^ source.lapkernel
+#                                      ^ source.lapkernel keyword.operator.laplace
+#                                       ^ source.lapkernel
+#                                        ^^ source.lapkernel constant.numeric.lapkernel
+#                                          ^ source.lapkernel
+#                                           ^ source.lapkernel keyword.operator.laplace
+#                                            ^ source.lapkernel
+#                                             ^^^^^^^^^^^ source.lapkernel support.function.context.lapkernel
+#                                                        ^^^^^^^^ source.lapkernel
+#                                                                ^ source.lapkernel keyword.operator.laplace
+#                                                                 ^ source.lapkernel
+#                                                                  ^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                     ^ source.lapkernel
+#                                                                      ^^^^ source.lapkernel variable.language.context.lapkernel
+#                                                                          ^ source.lapkernel
+#                                                                           ^ source.lapkernel keyword.operator.laplace
+#                                                                            ^^^^^^^^ source.lapkernel
+#                                                                                    ^ source.lapkernel keyword.operator.laplace
+#                                                                                     ^ source.lapkernel
+#                                                                                      ^ source.lapkernel constant.numeric.lapkernel
+#                                                                                       ^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>    pair = (h, k);
+#^^^^^^^^^ source.lapkernel
+#         ^ source.lapkernel keyword.operator.laplace
+#          ^^^^^^^^^ source.lapkernel
+>    real first = pair.1;
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^^^^^^^ source.lapkernel
+#               ^ source.lapkernel keyword.operator.laplace
+#                ^^^^^ source.lapkernel
+#                     ^ source.lapkernel punctuation.accessor.lapkernel
+#                      ^ source.lapkernel constant.numeric.index.lapkernel
+#                       ^^ source.lapkernel
+>    for (i in 1:dim) {
+#^^^^ source.lapkernel
+#    ^^^ source.lapkernel keyword.control.lapkernel
+#       ^^^^ source.lapkernel
+#           ^^ source.lapkernel keyword.control.lapkernel
+#             ^ source.lapkernel
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^ source.lapkernel
+#                ^^^ source.lapkernel variable.language.context.lapkernel
+#                   ^^^^ source.lapkernel
+>      first += 0 * q_new[i];
+#^^^^^^^^^^^^ source.lapkernel
+#            ^^ source.lapkernel keyword.operator.laplace
+#              ^ source.lapkernel
+#               ^ source.lapkernel constant.numeric.lapkernel
+#                ^ source.lapkernel
+#                 ^ source.lapkernel keyword.operator.laplace
+#                  ^^^^^^^^^^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>    last_lp = lp_new;
+#^^^^^^^^^^^^ source.lapkernel
+#            ^ source.lapkernel keyword.operator.laplace
+#             ^^^^^^^^^ source.lapkernel
+>    propose(q_new, first);
+#^^^^ source.lapkernel
+#    ^^^^^^^ source.lapkernel keyword.control.terminal.lapkernel
+#           ^^^^^^^^^^^^^^^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>}
+#^^ source.lapkernel
+>
