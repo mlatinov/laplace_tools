@@ -9,9 +9,9 @@ Metodi's to take: nothing has been merged, tagged or published.
 
 | PR | Branch → base | What | State |
 |---|---|---|---|
-| [#7](https://github.com/mlatinov/laplace/pull/7) | `editor-api/syntax-crate` → `main` | The `laplace-sampler-syntax` crate: the sampler parsers and model-free checks, buildable without libclang; CI for it | open; 3 commits ahead of `main`, 0 behind |
-| [#8](https://github.com/mlatinov/laplace/pull/8) | `editor-api/symbols` → `editor-api/syntax-crate` | `builtins()`, `combinators()`, `kernel_index()`; built-in signatures in the registry; only nearby files indexed without a lock (Q9) | open; 4 commits on top of #7 |
-| [#9](https://github.com/mlatinov/laplace/pull/9) | `sampler/kernel-math` → `editor-api/symbols` | The kernel math library (32 safe Stan functions, `docs/sampler/kernel-functions.md`); library names no longer reserved; deeper `propose`/`move` docs; `ADAPT_DOC`, `adapt_tags()` | open; 1 commit on top of #8 |
+| [#7](https://github.com/mlatinov/laplace/pull/7) | `editor-api/syntax-crate` → `main` | The `laplace-sampler-syntax` crate: the sampler parsers and model-free checks, buildable without libclang; CI for it | merged 2026-11-26 (`bd106bc`) |
+| [#8](https://github.com/mlatinov/laplace/pull/8) | `editor-api/symbols` → `editor-api/syntax-crate` | `builtins()`, `combinators()`, `kernel_index()`; built-in signatures in the registry; only nearby files indexed without a lock (Q9) | merged 2026-11-26 (`029cda3`) |
+| [#9](https://github.com/mlatinov/laplace/pull/9) | `sampler/kernel-math` → `editor-api/symbols` | The kernel math library (32 safe Stan functions, `docs/sampler/kernel-functions.md`); library names no longer reserved; deeper `propose`/`move` docs; `ADAPT_DOC`, `adapt_tags()` | merged 2026-11-26 (`3051d20`) |
 
 laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 `main`, which already has the sampler work. It doesn't block anything here.
@@ -21,18 +21,16 @@ laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 | PR / branch | What | State |
 |---|---|---|
 | [#5](https://github.com/mlatinov/laplace_tools/pull/5) `lsp/fix-tests-fmt` | LSP test build fixed; `cargo fmt` | open; already merged into `editor/phase-2`, so in every later phase branch |
-| [#6](https://github.com/mlatinov/laplace_tools/pull/6) `laplace/doc-comment-scope` | Q6: the whole doc-comment line is a comment in `.laplace` | open; independent of the phase branches. It merges cleanly with `editor/phase-4`, and the extension's tests pass on the result |
+| [#6](https://github.com/mlatinov/laplace_tools/pull/6) `laplace/doc-comment-scope` | Q6: the whole doc-comment line is a comment in `.laplace` | merged 2026-11-26 (`835b74d`) |
 | `editor/phase-4` (no PR yet) | Phases 0–4, each stacked on the one before: languages, grammars, snippets, diagnostics, hover, completion, definition, signature help, versions, CI | 25 commits ahead of `main`, 0 behind; not pushed until Metodi says |
 
 `laplace-lsp` depends on the `laplace` and `laplace-sampler-syntax` crates
-by git, pinned to `3636190` (the tip of `sampler/kernel-math`, on top of
-laplace #8). The branch is pushed, so fresh builds and CI can fetch it.
-When #8 merges, open the `sampler/kernel-math` PR against `main` and merge
-it before moving the pin to `main`.
+by git, pinned to `3051d20`, the `laplace` `main` commit that merged #7, #8
+and #9 (steps 1 and 2 below are done):
 
 ```toml
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "3051d207e9cc649c4bc5ba3496f113e10925968a" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3051d207e9cc649c4bc5ba3496f113e10925968a" }
 ```
 
 ## Order

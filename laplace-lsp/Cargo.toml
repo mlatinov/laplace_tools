@@ -10,18 +10,16 @@ description = "Language server for .laplace files (semantic tokens, completion, 
 # release checks. laplace-sampler-syntax is the part of laplace-sample that
 # needs no runtime: laplace-sample itself needs libclang to build and does
 # not compile outside its own workspace (docs/editor/phase-0-report.md 0.3).
-# Pinned to sampler/kernel-math (stacked on editor-api/symbols, laplace PR #8,
-# itself stacked on #7) until they are merged; then
-# to the commit on main, and to the v0.3.0 tag once that exists
-# (docs/editor/open-questions.md, Q3 and Q7).
+# Pinned to the laplace main commit that merged #7, #8 and #9; moves to the
+# v0.3.0 tag once that exists (docs/editor/open-questions.md, Q3 and Q7).
 #
 # To build against a local laplace checkout instead, add this to
 # `.cargo/config.toml` (not committed) or uncomment it below:
 #   [patch."https://github.com/mlatinov/laplace"]
 #   laplace = { path = "../../laplace" }
 #   laplace-sampler-syntax = { path = "../../laplace/laplace-sampler-syntax" }
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "3051d207e9cc649c4bc5ba3496f113e10925968a" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3051d207e9cc649c4bc5ba3496f113e10925968a" }
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["rt-multi-thread", "io-std", "io-util", "macros", "sync", "time"] }
 serde = { version = "1", features = ["derive"] }
