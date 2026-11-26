@@ -362,6 +362,51 @@
 #                                                                                     ^ source.lapkernel
 #                                                                                      ^ source.lapkernel constant.numeric.lapkernel
 #                                                                                       ^^ source.lapkernel
+>      h += log1p_exp(h) - log1m_exp(-1) + inv_logit(h) + log_sum_exp(p) + fmax(h, 0) + norm2(softmax(p)) + is_nan(h) * pi() + e();
+#^^^^^^^^ source.lapkernel
+#        ^^ source.lapkernel keyword.operator.laplace
+#          ^ source.lapkernel
+#           ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                    ^^^^ source.lapkernel
+#                        ^ source.lapkernel keyword.operator.laplace
+#                         ^ source.lapkernel
+#                          ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                   ^ source.lapkernel
+#                                    ^ source.lapkernel keyword.operator.laplace
+#                                     ^ source.lapkernel constant.numeric.lapkernel
+#                                      ^^ source.lapkernel
+#                                        ^ source.lapkernel keyword.operator.laplace
+#                                         ^ source.lapkernel
+#                                          ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                   ^^^^ source.lapkernel
+#                                                       ^ source.lapkernel keyword.operator.laplace
+#                                                        ^ source.lapkernel
+#                                                         ^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                    ^^^^ source.lapkernel
+#                                                                        ^ source.lapkernel keyword.operator.laplace
+#                                                                         ^ source.lapkernel
+#                                                                          ^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                              ^^^^ source.lapkernel
+#                                                                                  ^ source.lapkernel constant.numeric.lapkernel
+#                                                                                   ^^ source.lapkernel
+#                                                                                     ^ source.lapkernel keyword.operator.laplace
+#                                                                                      ^ source.lapkernel
+#                                                                                       ^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                                            ^ source.lapkernel
+#                                                                                             ^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                                                    ^^^^^ source.lapkernel
+#                                                                                                         ^ source.lapkernel keyword.operator.laplace
+#                                                                                                          ^ source.lapkernel
+#                                                                                                           ^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                                                                 ^^^^ source.lapkernel
+#                                                                                                                     ^ source.lapkernel keyword.operator.laplace
+#                                                                                                                      ^ source.lapkernel
+#                                                                                                                       ^^ source.lapkernel support.function.builtin.lapkernel
+#                                                                                                                         ^^^ source.lapkernel
+#                                                                                                                            ^ source.lapkernel keyword.operator.laplace
+#                                                                                                                             ^ source.lapkernel
+#                                                                                                                              ^ source.lapkernel support.function.builtin.lapkernel
+#                                                                                                                               ^^^^ source.lapkernel
 >    }
 #^^^^^^ source.lapkernel
 >    pair = (h, k);

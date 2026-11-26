@@ -36,6 +36,7 @@ kernel coverage {
       h = h + normal_lpdf(1.0 | 0, 1) - std_normal_lpdf(0.5) + 0 * uniform_rng(0, 1) * normal_rng(0, 1);
     } else {
       h -= exp(log(sqrt(square(2.)))) + .5 - log_density(q_new) + sum(grad - g_new) ^ 2;
+      h += log1p_exp(h) - log1m_exp(-1) + inv_logit(h) + log_sum_exp(p) + fmax(h, 0) + norm2(softmax(p)) + is_nan(h) * pi() + e();
     }
     pair = (h, k);
     real first = pair.1;

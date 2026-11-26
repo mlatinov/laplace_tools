@@ -125,7 +125,7 @@
 #^^^^ source.lapkernel
 #    ^^^^ source.lapkernel storage.type.lapkernel
 #        ^ source.lapkernel
-#         ^^^^^^^^^ source.lapkernel entity.name.function.laplace
+#         ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
 #                  ^ source.lapkernel
 #                   ^^^^ source.lapkernel storage.type.lapkernel
 #                       ^^^^^^ source.lapkernel
@@ -299,7 +299,7 @@
 #^^^^^^^^ source.lapkernel
 #        ^^ source.lapkernel keyword.operator.laplace
 #          ^ source.lapkernel
-#           ^^^^^^^^^ source.lapkernel entity.name.function.laplace
+#           ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
 #                    ^ source.lapkernel
 #                     ^ source.lapkernel keyword.operator.laplace
 #                      ^^^^^^^^^^ source.lapkernel
@@ -313,7 +313,7 @@
 #                                              ^^^^^ source.lapkernel
 #                                                   ^ source.lapkernel keyword.operator.laplace
 #                                                    ^ source.lapkernel
-#                                                     ^^^^^^^^^ source.lapkernel entity.name.function.laplace
+#                                                     ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
 #                                                              ^ source.lapkernel
 #                                                               ^ source.lapkernel keyword.operator.laplace
 #                                                                ^ source.lapkernel

@@ -11,8 +11,8 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use laplace_sampler_syntax::editor::{
-    builtins, combinators, kernel_index, Builtin, BuiltinKind, Combinator, KernelEntry,
-    KernelOrigin, KernelSetting, Project,
+    adapt_tags, builtins, combinators, kernel_index, AdaptTag, Builtin, BuiltinKind, Combinator,
+    KernelEntry, KernelOrigin, KernelSetting, Project, ADAPT_DOC,
 };
 
 use laplace_sampler_syntax::builtin_kernels::BuiltIn;
@@ -84,15 +84,93 @@ pub fn hover(
     let masked = cursor::mask_comments(text);
     let token = cursor::token_at(&masked, offset)?;
     let markdown = match language {
-        Language::Kernel => {
-            if token.kind != TokenKind::Name {
-                return None;
-            }
-            builtin_markdown(&builtin(&token.text)?)
-        }
+        Language::Kernel => kernel_hover(&masked, &token)?,
         Language::Sampler => sampler_hover(&masked, &token, index?)?,
     };
     Some((token.range, markdown))
+}
+
+fn kernel_hover(masked: &str, token: &Token) -> Option<String> {
+    if token.kind != TokenKind::Name {
+        return None;
+    }
+    if token.text == "@adapt" {
+        return Some(adapt_markdown());
+    }
+    if in_adapt_tag(masked, token.range.start) {
+        let tag = match token.text.as_str() {
+            // target_accept only belongs to the step-size tag.
+            "target_accept" => "step_size",
+            other => other,
+        };
+        return adapt_tags()
+            .iter()
+            .find(|t| t.name == tag)
+            .map(adapt_tag_markdown);
+    }
+    if defines_function(masked, &token.text) {
+        return Some(format!(
+            "`{}` is this kernel's own function (its `functions {{ }}` block), which \
+             replaces the library function of the same name inside this kernel.",
+            token.text
+        ));
+    }
+    Some(builtin_markdown(&builtin(&token.text)?))
+}
+
+/// The cursor is inside the parentheses of an `@adapt(...)` tag.
+fn in_adapt_tag(masked: &str, offset: usize) -> bool {
+    let before = &masked[..offset];
+    let Some(at) = before.rfind("@adapt") else {
+        return false;
+    };
+    let between = &before[at + "@adapt".len()..];
+    between.trim_start().starts_with('(') && !between.contains([')', ';'])
+}
+
+/// `masked` defines a function called `name`: `<return type> name(`, the
+/// return type ending in a type keyword, a size (`vector[n]`) or a tuple
+/// (`tuple(real, vector)`). A call follows an operator, `=`, `(`, `,` or
+/// `return` instead.
+fn defines_function(masked: &str, name: &str) -> bool {
+    let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    masked.match_indices(name).any(|(i, _)| {
+        let (before, after) = (&masked[..i], &masked[i + name.len()..]);
+        if before.ends_with(ident)
+            || after.starts_with(ident)
+            || !after.trim_start().starts_with('(')
+        {
+            return false;
+        }
+        let before = before.trim_end();
+        if before.ends_with(']') {
+            return true;
+        }
+        if before.ends_with(')') {
+            // the closing parenthesis of `tuple(...)`
+            let open = before.rfind('(').unwrap_or(0);
+            return before[..open].trim_end().ends_with("tuple");
+        }
+        let word = before
+            .rsplit(|c: char| !ident(c))
+            .next()
+            .unwrap_or_default();
+        matches!(word, "real" | "int" | "vector" | "matrix" | "void")
+    })
+}
+
+fn adapt_markdown() -> String {
+    let mut md = ADAPT_DOC.to_string();
+    for t in adapt_tags() {
+        let first = t.doc.split("\n\n").next().unwrap_or_default();
+        md += &format!("\n\n**`@adapt({})`**: {first}", t.name);
+    }
+    md += "\n\nHover a tag's name for its schedule and details.";
+    md
+}
+
+fn adapt_tag_markdown(t: &AdaptTag) -> String {
+    format!("{}\n\n{}", fenced("lapkernel", &[t.signature]), t.doc)
 }
 
 fn sampler_hover(masked: &str, token: &Token, index: &Index) -> Option<String> {

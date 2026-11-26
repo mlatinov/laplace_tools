@@ -122,9 +122,100 @@ fn kernel_hover_on_context_values_and_terminals() {
     assert!(dim.ends_with("*Also allowed in tuning defaults.*"), "{dim}");
     let mv = md("move").unwrap();
     assert!(
-        mv.contains("void move(vector[dim] q_new)") && mv.contains("ends the step"),
+        mv.contains("void move(vector[dim] q_new)") && mv.contains("Ends the step"),
         "{mv}"
     );
+}
+
+#[test]
+fn kernel_hover_explains_propose_and_move_in_depth() {
+    let src = "kernel k {\n  step {\n    if (lp > 0) {\n      propose(q, 0);\n    } else {\n      move(q);\n    }\n  }\n}\n";
+    let md = |word: &str| {
+        hover(Language::Kernel, src, src.find(word).unwrap() + 1, None)
+            .unwrap()
+            .1
+    };
+    let p = md("propose");
+    for part in [
+        "log_alpha = lp(q_new) - lp + log_correction",
+        "--sbc",
+        "negative_infinity()",
+        "@adapt(step_size)",
+    ] {
+        assert!(p.contains(part), "{part} in {p}");
+    }
+    let m = md("move");
+    for part in ["stops the run", "leave the target", "keeps shrinking"] {
+        assert!(m.contains(part), "{part} in {m}");
+    }
+}
+
+const ADAPTED: &str = "kernel k {\n  tuning {\n    real<lower=0> eps = 1 @adapt(step_size, target_accept = 0.574);\n    vector<lower=0>[dim] m = rep_vector(1, dim) @adapt(metric);\n  }\n  step {\n    vector[dim] z = eps * sqrt(metric) .* std_normal_rng(dim);\n    propose(q + z, 0);\n  }\n}\n";
+
+fn adapted_hover(find: &str) -> String {
+    let o = ADAPTED.find(find).unwrap_or_else(|| panic!("{find}")) + 1;
+    hover(Language::Kernel, ADAPTED, o, None).unwrap().1
+}
+
+#[test]
+fn kernel_hover_on_adapt_explains_adaptation_and_both_tags() {
+    let md = adapted_hover("@adapt(step");
+    for part in [
+        "Marks a tuning value for warmup adaptation",
+        "--set adapt=false",
+        "adapt(k)",
+        "freezes",
+        "**`@adapt(step_size)`**: Adapts a `real` step size by **dual averaging**",
+        "**`@adapt(metric)`**: Adapts a `vector[dim]` **diagonal inverse metric**",
+    ] {
+        assert!(md.contains(part), "{part} in {md}");
+    }
+}
+
+#[test]
+fn kernel_hover_on_an_adapt_tag_shows_that_tag() {
+    let step = adapted_hover("step_size,");
+    assert!(
+        step.starts_with("```lapkernel\nreal<lower=0> eps"),
+        "{step}"
+    );
+    assert!(
+        step.contains("target_accept") && step.contains("0.574 for MALA"),
+        "{step}"
+    );
+    assert_eq!(adapted_hover("target_accept ="), step);
+    // inside @adapt(...) `metric` is the tag; in the step it is the built-in
+    let tag = adapted_hover("metric)");
+    assert!(
+        tag.contains("slow windows") && tag.contains("sqrt(m)"),
+        "{tag}"
+    );
+    let value = adapted_hover("metric) .*");
+    assert!(
+        value.starts_with("```lapkernel\nvector[dim] metric"),
+        "{value}"
+    );
+}
+
+#[test]
+fn kernel_hover_on_the_math_library_and_on_own_functions() {
+    let src = "kernel k {\n  functions {\n    real log1p_exp(real x) {\n      return x;\n    }\n  }\n  step {\n    real c = log1p_exp(lp) + inv_logit(lp);\n    if (lp > inv_logit(lp)) {\n      propose(q, c);\n    } else {\n      move(q);\n    }\n  }\n}\n";
+    let md = |find: &str| {
+        hover(Language::Kernel, src, src.find(find).unwrap() + 1, None)
+            .unwrap()
+            .1
+    };
+    assert!(md("log1p_exp(lp)").contains("this kernel's own function"));
+    let inv = md("inv_logit(lp))");
+    assert!(
+        inv.starts_with("```lapkernel\nreal inv_logit(real x)\nvector inv_logit(vector x)\n```"),
+        "{inv}"
+    );
+    assert!(inv.contains("without overflow"), "{inv}");
+    assert!(!defines_function(src, "inv_logit"));
+    assert!(defines_function("tuple(real, vector) f(real x)", "f"));
+    assert!(defines_function("vector[n] f(real x)", "f"));
+    assert!(!defines_function("x = w[i] * f(1)", "f"));
 }
 
 #[test]

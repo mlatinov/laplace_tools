@@ -11,6 +11,7 @@ Metodi's to take: nothing has been merged, tagged or published.
 |---|---|---|---|
 | [#7](https://github.com/mlatinov/laplace/pull/7) | `editor-api/syntax-crate` → `main` | The `laplace-sampler-syntax` crate: the sampler parsers and model-free checks, buildable without libclang; CI for it | open; 3 commits ahead of `main`, 0 behind |
 | [#8](https://github.com/mlatinov/laplace/pull/8) | `editor-api/symbols` → `editor-api/syntax-crate` | `builtins()`, `combinators()`, `kernel_index()`; built-in signatures in the registry; only nearby files indexed without a lock (Q9) | open; 4 commits on top of #7 |
+| (no PR yet) | `sampler/kernel-math` → `editor-api/symbols` | The kernel math library (32 safe Stan functions, `docs/sampler/kernel-functions.md`); library names no longer reserved; deeper `propose`/`move` docs; `ADAPT_DOC`, `adapt_tags()` | 1 commit on top of #8; not pushed until Metodi says |
 
 laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 `main`, which already has the sampler work. It doesn't block anything here.
@@ -24,11 +25,15 @@ laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 | `editor/phase-4` (no PR yet) | Phases 0–4, each stacked on the one before: languages, grammars, snippets, diagnostics, hover, completion, definition, signature help, versions, CI | 25 commits ahead of `main`, 0 behind; not pushed until Metodi says |
 
 `laplace-lsp` depends on the `laplace` and `laplace-sampler-syntax` crates
-by git, pinned to `05920aa` (the tip of laplace #8):
+by git, pinned to `be5cb46` (the tip of `sampler/kernel-math`, on top of
+laplace #8). That branch must be pushed before a fresh build or CI can fetch
+it; until then, build with the local `[patch]` in `laplace-lsp/Cargo.toml`.
+When #8 merges, open the `sampler/kernel-math` PR against `main` and merge
+it before moving the pin to `main`.
 
 ```toml
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "05920aa99d0b496cea7b58a0a443d2d52367cf34" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "05920aa99d0b496cea7b58a0a443d2d52367cf34" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "be5cb4609780b00e4334b4b321c880e05cb7c66f" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "be5cb4609780b00e4334b4b321c880e05cb7c66f" }
 ```
 
 ## Order

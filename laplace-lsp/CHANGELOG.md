@@ -9,6 +9,14 @@
 - Hover, completion, go-to-definition and signature help. The names and
   docs come from `builtins()`, `combinators()` and `kernel_index()` in the
   same crate.
+- Hover on `@adapt` explains warmup adaptation: when it runs, what freezes,
+  and both tags. Hover on `step_size`, `metric` or `target_accept` inside
+  `@adapt(...)` shows that tag's algorithm and schedule. Hover on `propose`
+  and `move` explains the accept rule, the correction term, rejection, and
+  how each interacts with `@adapt`.
+- Kernels get laplace's new math library (`inv_logit`, `log1p_exp`,
+  `log_sum_exp`, `fmax`, `softmax`, ... with hover docs). A kernel function
+  with a library function's name shows as the kernel's own function.
 - Parameter names inside `block(...)` come from the model's
   `parameters { }` block. The model is a `// model:` comment, else the
   `.laplace` file with the sampler's name, else the only `.laplace` file

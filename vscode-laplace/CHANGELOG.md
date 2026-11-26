@@ -21,7 +21,9 @@ Custom samplers are experimental in `laplace` 0.3.0, and so is this support.
   names kernel files and packages; those are read and checked too. Saving a
   kernel re-checks the open samplers.
 - Hover:
-  - in `.lapkernel`, the built-ins;
+  - in `.lapkernel`, the built-ins, including laplace's kernel math library
+    (`inv_logit`, `log1p_exp`, `log_sum_exp`, ...), `@adapt` and its tags
+    (`step_size`, `metric`, `target_accept`), and `propose`/`move` in depth;
   - in `.lapsampler`, kernels (what `laplace sampler doc` prints),
     combinators and settings.
 - Completion:
