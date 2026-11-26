@@ -563,7 +563,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 [[package]]
 name = "laplace"
 version = "0.3.0"
-source = "git+https://github.com/mlatinov/laplace?rev=3051d207e9cc649c4bc5ba3496f113e10925968a#3051d207e9cc649c4bc5ba3496f113e10925968a"
+source = "git+https://github.com/mlatinov/laplace?rev=05d02d8d82912f415467ae89cf43cd56d07ce699#05d02d8d82912f415467ae89cf43cd56d07ce699"
 dependencies = [
  "clap",
  "semver",
@@ -594,7 +594,7 @@ dependencies = [
 [[package]]
 name = "laplace-sampler-syntax"
 version = "0.3.0"
-source = "git+https://github.com/mlatinov/laplace?rev=3051d207e9cc649c4bc5ba3496f113e10925968a#3051d207e9cc649c4bc5ba3496f113e10925968a"
+source = "git+https://github.com/mlatinov/laplace?rev=05d02d8d82912f415467ae89cf43cd56d07ce699#05d02d8d82912f415467ae89cf43cd56d07ce699"
 dependencies = [
  "anyhow",
  "laplace",
