@@ -82,7 +82,10 @@ const BLOCK_KEYWORDS: &[(&[&str], BlockKind)] = &[
     (&["functions"], BlockKind::Functions),
     (&["transformed", "data"], BlockKind::TransformedData),
     (&["data"], BlockKind::Data),
-    (&["transformed", "parameters"], BlockKind::TransformedParameters),
+    (
+        &["transformed", "parameters"],
+        BlockKind::TransformedParameters,
+    ),
     (&["parameters"], BlockKind::Parameters),
     (&["model"], BlockKind::Model),
     (&["generated", "quantities"], BlockKind::GeneratedQuantities),
@@ -117,7 +120,10 @@ pub fn find_top_level_blocks(source: &str, mask: &CodeMask) -> Vec<Block> {
             for (words, kind) in BLOCK_KEYWORDS {
                 if let Some(after_kw) = match_phrase(source, mask, i, words) {
                     let brace_pos = skip_real_ws(source, mask, after_kw);
-                    if brace_pos < bytes.len() && mask.is_real(brace_pos) && bytes[brace_pos] == b'{' {
+                    if brace_pos < bytes.len()
+                        && mask.is_real(brace_pos)
+                        && bytes[brace_pos] == b'{'
+                    {
                         if let Some(close) = mask.match_closing_brace(source, brace_pos) {
                             out.push(Block {
                                 kind: *kind,
@@ -220,7 +226,11 @@ fn is_type_keyword(word: &str) -> bool {
 /// depth to 0 (closing a compound statement like `for (...) { ... }`, which
 /// has no trailing `;` of its own). `)`/`]` never end a statement even when
 /// they return depth to 0 -- only `}` does.
-fn split_top_level_statements(source: &str, mask: &CodeMask, range: Range<usize>) -> Vec<Range<usize>> {
+fn split_top_level_statements(
+    source: &str,
+    mask: &CodeMask,
+    range: Range<usize>,
+) -> Vec<Range<usize>> {
     let bytes = source.as_bytes();
     let mut out = Vec::new();
     let mut depth = 0i32;
@@ -370,8 +380,13 @@ fn blank_out_blocks(source: &str, blocks: &[Block]) -> String {
     for block in blocks {
         // The block's own keyword sits before its opening brace; back up to
         // the start of the line so it can't be read as a function header.
-        let start = source[..block.open_brace].rfind('\n').map_or(0, |nl| nl + 1);
-        out.replace_range(start..=block.close_brace, &" ".repeat(block.close_brace + 1 - start));
+        let start = source[..block.open_brace]
+            .rfind('\n')
+            .map_or(0, |nl| nl + 1);
+        out.replace_range(
+            start..=block.close_brace,
+            &" ".repeat(block.close_brace + 1 - start),
+        );
     }
     out
 }
@@ -397,7 +412,11 @@ pub fn analyze(source: &str) -> Analysis {
     let mut user_functions: HashSet<String> = blocks
         .iter()
         .find(|b| b.kind == BlockKind::Functions)
-        .map(|b| laplace::parser::signatures::extract_signatures(&source[b.open_brace + 1..b.close_brace]))
+        .map(|b| {
+            laplace::parser::signatures::extract_signatures(
+                &source[b.open_brace + 1..b.close_brace],
+            )
+        })
         .unwrap_or_default()
         .into_iter()
         .map(|sig| sig.name)
@@ -626,13 +645,15 @@ model {
 
         assert!(tokens
             .iter()
-            .any(|t| &source[t.start..t.end] == "gps::rbf_cov" && t.token_type == TOKEN_LIBRARY_FUNCTION));
+            .any(|t| &source[t.start..t.end] == "gps::rbf_cov"
+                && t.token_type == TOKEN_LIBRARY_FUNCTION));
         assert!(tokens
             .iter()
             .any(|t| &source[t.start..t.end] == "helper" && t.token_type == TOKEN_USER_FUNCTION));
         assert!(tokens
             .iter()
-            .any(|t| &source[t.start..t.end] == "normal_rng" && t.token_type == TOKEN_BUILTIN_FUNCTION));
+            .any(|t| &source[t.start..t.end] == "normal_rng"
+                && t.token_type == TOKEN_BUILTIN_FUNCTION));
     }
 
     #[test]

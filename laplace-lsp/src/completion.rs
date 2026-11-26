@@ -77,7 +77,11 @@ pub fn general_completions(analysis: &Analysis, dialect: Dialect) -> Vec<Complet
 
 /// Completions for `pkg::` -- every exported function of `pkg`, resolved via
 /// the project's lockfile and that package's installed `docs.json` sidecar.
-pub fn package_completions(lock: &Lockfile, cache_root: &Path, package: &str) -> Vec<CompletionItem> {
+pub fn package_completions(
+    lock: &Lockfile,
+    cache_root: &Path,
+    package: &str,
+) -> Vec<CompletionItem> {
     let Some(locked) = lock.packages.iter().find(|p| p.name == package) else {
         return Vec::new();
     };
@@ -116,7 +120,6 @@ pub fn package_completions(lock: &Lockfile, cache_root: &Path, package: &str) ->
         .collect()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,7 +137,10 @@ mod tests {
         assert!(items.contains(&"functions".to_string()));
         assert!(items.contains(&"library".to_string()));
         for forbidden in ["data", "parameters", "model", "generated quantities"] {
-            assert!(!items.contains(&forbidden.to_string()), "offered `{forbidden}`");
+            assert!(
+                !items.contains(&forbidden.to_string()),
+                "offered `{forbidden}`"
+            );
         }
     }
 

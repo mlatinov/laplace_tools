@@ -14,7 +14,9 @@
 use std::ops::Range;
 use std::path::Path;
 
-use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range as LspRange, Url};
+use tower_lsp::lsp_types::{
+    Diagnostic, DiagnosticSeverity, NumberOrString, Range as LspRange, Url,
+};
 
 use laplace::codegen::{self, CodegenError, CodegenOptions};
 use laplace::expand::blocks::BlockExpandError;
@@ -22,9 +24,9 @@ use laplace::expand::macros::MacroExpandError;
 use laplace::parser::blocks::{find_top_level_blocks, BlockKind};
 use laplace::parser::identifiers::check_identifiers;
 use laplace::parser::laplacelib::{self, LaplaceLibError};
+use laplace::parser::library_block::{parse_library_block, ImportStatement, LibraryBlock};
 use laplace::parser::macros::find_macros;
 use laplace::parser::template::find_templates;
-use laplace::parser::library_block::{parse_library_block, ImportStatement, LibraryBlock};
 use laplace::resolve::lockfile::{self, Lockfile};
 
 use crate::dialect::Dialect;
@@ -101,7 +103,13 @@ pub fn compute_diagnostics(
         Err(err) => {
             let range = err.offset..err.offset + err.identifier.len();
             let message = format!("{err}\n  help: {}", err.help());
-            diags.push(diagnostic(source, &starts, range, code::RESERVED_IDENTIFIER, message));
+            diags.push(diagnostic(
+                source,
+                &starts,
+                range,
+                code::RESERVED_IDENTIFIER,
+                message,
+            ));
             false
         }
     };
@@ -116,7 +124,13 @@ pub fn compute_diagnostics(
     let library_block = match parse_library_block(source) {
         Ok(b) => b,
         Err(e) => {
-            diags.push(diagnostic(source, &starts, 0..0, code::LIBRARY_BLOCK, e.to_string()));
+            diags.push(diagnostic(
+                source,
+                &starts,
+                0..0,
+                code::LIBRARY_BLOCK,
+                e.to_string(),
+            ));
             return diags;
         }
     };
@@ -197,23 +211,37 @@ pub fn compute_diagnostics(
     }
 
     let options = CodegenOptions::inline().named(SOURCE_NAME);
-    if let Err(err) = codegen::generate_with_options(source, library_block.as_ref(), &installed, &options) {
+    if let Err(err) =
+        codegen::generate_with_options(source, library_block.as_ref(), &installed, &options)
+    {
         let already_reported = match &err {
             CodegenError::MissingImport { package } => unavailable.contains(package),
-            CodegenError::ImportVersionMismatch { package, .. } => version_mismatched.contains(package),
+            CodegenError::ImportVersionMismatch { package, .. } => {
+                version_mismatched.contains(package)
+            }
             _ => false,
         };
         if !already_reported {
             let range = codegen_error_range(source, library_block.as_ref(), &err);
             let message = without_own_location(&err.to_string());
-            diags.push(diagnostic(source, &starts, range, codegen_error_code(&err), message));
+            diags.push(diagnostic(
+                source,
+                &starts,
+                range,
+                codegen_error_code(&err),
+                message,
+            ));
         }
     }
 
     diags
 }
 
-pub(crate) fn import_range(source: &str, block: &LibraryBlock, import: &ImportStatement) -> Range<usize> {
+pub(crate) fn import_range(
+    source: &str,
+    block: &LibraryBlock,
+    import: &ImportStatement,
+) -> Range<usize> {
     let body = &source[block.byte_range.clone()];
     let needle = format!("import {}", import.name);
     if let Some(rel) = body.find(&needle) {
@@ -238,7 +266,10 @@ pub(crate) fn import_range(source: &str, block: &LibraryBlock, import: &ImportSt
 /// compiler stops at the broken definition too, and
 /// [`library_item_diagnostic`] says what is wrong with it.
 fn forbidden_block_diagnostics(source: &str, starts: &[usize]) -> Vec<Diagnostic> {
-    let (Ok(templates), Ok(macros)) = (find_templates(source, &|_| false), find_macros(source, &|_| false)) else {
+    let (Ok(templates), Ok(macros)) = (
+        find_templates(source, &|_| false),
+        find_macros(source, &|_| false),
+    ) else {
         return Vec::new();
     };
     let definitions: Vec<Range<usize>> = templates
@@ -287,7 +318,13 @@ fn library_item_diagnostic(source: &str, starts: &[usize]) -> Option<Diagnostic>
     };
     let range = line_range_from(source, line_col_to_offset(source, line, column));
     let message = without_own_location(&err.to_string());
-    Some(diagnostic(source, starts, range, code::LIBRARY_ITEM, message))
+    Some(diagnostic(
+        source,
+        starts,
+        range,
+        code::LIBRARY_ITEM,
+        message,
+    ))
 }
 
 /// Which [`code`] a `codegen` failure reports under.
@@ -318,7 +355,11 @@ fn codegen_error_code(err: &CodegenError) -> &'static str {
     }
 }
 
-fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: &CodegenError) -> Range<usize> {
+fn codegen_error_range(
+    source: &str,
+    library_block: Option<&LibraryBlock>,
+    err: &CodegenError,
+) -> Range<usize> {
     let calls = laplace::codegen::rename::find_qualified_calls(source);
     let import_of = |package: &str| {
         library_block.and_then(|b| {
@@ -391,9 +432,15 @@ fn codegen_error_range(source: &str, library_block: Option<&LibraryBlock>, err: 
 /// `--> <source>:line:column`, if it points into this file.
 fn own_location(source: &str, message: &str) -> Option<usize> {
     let prefix = format!("--> {SOURCE_NAME}:");
-    let rest = message.lines().find_map(|l| l.trim_start().strip_prefix(prefix.as_str()))?;
+    let rest = message
+        .lines()
+        .find_map(|l| l.trim_start().strip_prefix(prefix.as_str()))?;
     let (line, column) = rest.trim_end().split_once(':')?;
-    Some(line_col_to_offset(source, line.parse().ok()?, column.parse().ok()?))
+    Some(line_col_to_offset(
+        source,
+        line.parse().ok()?,
+        column.parse().ok()?,
+    ))
 }
 
 /// The message without its `--> <source>:...` line: the diagnostic's range
@@ -482,6 +529,7 @@ mod tests {
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         }
     }
@@ -514,6 +562,7 @@ mod tests {
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         };
         let source = "library {\n  import gps\n}\nmodel {\n}\n";
@@ -602,7 +651,10 @@ mod tests {
     fn the_same_blocks_are_fine_in_a_laplace_file() {
         let tmp = tempfile::tempdir().unwrap();
         let source = "data {\n  int N;\n}\nmodel {\n}\n";
-        assert!(compute_diagnostics(source, Dialect::Laplace, &Lockfile::default(), tmp.path()).is_empty());
+        assert!(
+            compute_diagnostics(source, Dialect::Laplace, &Lockfile::default(), tmp.path())
+                .is_empty()
+        );
     }
 
     #[test]
@@ -681,7 +733,11 @@ pub real half(real x) {
     fn install_stats(cache_root: &Path) -> Lockfile {
         let dir = cache_root.join("stats").join("1.0.0");
         fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("laplace.toml"), "name = \"stats\"\nversion = \"1.0.0\"\n").unwrap();
+        fs::write(
+            dir.join("laplace.toml"),
+            "name = \"stats\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
         fs::write(dir.join("stats.laplacelib"), STATS_LIB).unwrap();
 
         Lockfile {
@@ -692,6 +748,7 @@ pub real half(real x) {
                 checksum: "sha256:whatever".to_string(),
                 source: "registry".to_string(),
                 dependencies: Vec::new(),
+                kind: Default::default(),
             }],
         }
     }
@@ -814,11 +871,19 @@ model {
         let diags = compute_diagnostics(source, Dialect::Laplace, &lock, tmp.path());
 
         assert_eq!(codes(&diags), vec![code::UNKNOWN_EXPORT]);
-        assert!(diags[0].message.contains("no template `nope`"), "{}", diags[0].message);
+        assert!(
+            diags[0].message.contains("no template `nope`"),
+            "{}",
+            diags[0].message
+        );
         assert_eq!(diags[0].range.start.line, 4);
         assert_eq!(diags[0].range.start.character, 0);
         // The range says where; the message need not.
-        assert!(!diags[0].message.contains(SOURCE_NAME), "{}", diags[0].message);
+        assert!(
+            !diags[0].message.contains(SOURCE_NAME),
+            "{}",
+            diags[0].message
+        );
     }
 
     #[test]
