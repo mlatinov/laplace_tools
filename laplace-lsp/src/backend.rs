@@ -1,7 +1,8 @@
 //! The `tower-lsp` `LanguageServer` implementation: document store,
 //! debounced diagnostics, semantic tokens, completion, hover, and
 //! go-to-definition, all built on top of `analysis`/`diagnostics`/
-//! `completion`/`workspace`.
+//! `completion`/`workspace`. `.lapkernel` and `.lapsampler` documents get
+//! diagnostics only (`sampler`); the other requests answer nothing for them.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -19,12 +20,18 @@ use crate::diagnostics;
 use crate::dialect::Dialect;
 use crate::hover;
 use crate::position;
+use crate::sampler::{self, features, model, Language};
 use crate::stanc;
 use crate::workspace;
 
 /// How long to wait after the last edit before running diagnostics, so a
 /// fast typist doesn't trigger a full codegen pass per keystroke.
 const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(350);
+
+/// The same for `.lapkernel`/`.lapsampler`: their check is a parse and a
+/// type check in process, with no codegen and no `stanc`, so it can run
+/// sooner.
+const SAMPLER_DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(200);
 
 pub struct Backend {
     client: Client,
@@ -51,6 +58,34 @@ impl Backend {
 
         let client = self.client.clone();
         let documents = self.documents.clone();
+
+        if let Some(language) = Language::for_uri(&uri) {
+            tokio::spawn(async move {
+                tokio::time::sleep(SAMPLER_DIAGNOSTICS_DEBOUNCE).await;
+                if generation.load(Ordering::SeqCst) != my_generation {
+                    return;
+                }
+                let Some(text) = documents.get(&uri).map(|entry| entry.clone()) else {
+                    return;
+                };
+                let Ok(path) = uri.to_file_path() else {
+                    return;
+                };
+                // Reads kernel files and laplace.lock from disk.
+                let Ok(diags) = tokio::task::spawn_blocking(move || {
+                    sampler::diagnostics(language, &path, &text)
+                })
+                .await
+                else {
+                    return;
+                };
+                if generation.load(Ordering::SeqCst) != my_generation {
+                    return;
+                }
+                client.publish_diagnostics(uri, diags, None).await;
+            });
+            return;
+        }
 
         tokio::spawn(async move {
             tokio::time::sleep(DIAGNOSTICS_DEBOUNCE).await;
@@ -94,11 +129,20 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 completion_provider: Some(CompletionOptions {
-                    trigger_characters: Some(vec![":".to_string()]),
+                    // `:` for `pkg::`. The rest are for sampler files only
+                    // (a setting after `(` or `,`, a path after `/`); a
+                    // .laplace request they trigger answers nothing.
+                    trigger_characters: Some([":", "(", ",", "/"].map(String::from).to_vec()),
                     resolve_provider: Some(false),
                     ..Default::default()
                 }),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
+                // Sampler files only: combinators and kernel calls.
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+                    retrigger_characters: None,
+                    work_done_progress_options: Default::default(),
+                }),
                 definition_provider: Some(OneOf::Left(true)),
                 semantic_tokens_provider: Some(
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
@@ -151,7 +195,26 @@ impl LanguageServer for Backend {
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        self.schedule_diagnostics(params.text_document.uri);
+        let uri = params.text_document.uri;
+        // An open .lapsampler reads the kernels it names from disk, so
+        // saving a kernel re-checks every open sampler file, and drops the
+        // cached kernel indexes (its tuning values or docs may have
+        // changed, or it is new).
+        if Language::for_uri(&uri) == Some(Language::Kernel) {
+            index_cache().clear();
+            let samplers: Vec<Url> = self
+                .documents
+                .iter()
+                .map(|entry| entry.key().clone())
+                .filter(|u| *u != uri && Language::for_uri(u) == Some(Language::Sampler))
+                .collect();
+            for sampler_uri in samplers {
+                self.schedule_diagnostics(sampler_uri);
+            }
+        }
+        if self.documents.contains_key(&uri) {
+            self.schedule_diagnostics(uri);
+        }
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
@@ -167,6 +230,17 @@ impl LanguageServer for Backend {
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
+        if let Some(language) = Language::for_uri(&uri) {
+            let items = sampler_completion(&uri, language, text, position).await;
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+        let sampler_trigger = params
+            .context
+            .and_then(|c| c.trigger_character)
+            .is_some_and(|c| c != ":");
+        if sampler_trigger {
+            return Ok(None);
+        }
 
         let offset = position::position_to_offset(&text, position);
         let prefix = &text[..offset.min(text.len())];
@@ -196,6 +270,9 @@ impl LanguageServer for Backend {
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
+        if let Some(language) = Language::for_uri(&uri) {
+            return Ok(sampler_hover(&uri, language, text, position).await);
+        }
 
         let offset = position::position_to_offset(&text, position);
         let analysis = analysis::analyze(&text);
@@ -228,6 +305,18 @@ impl LanguageServer for Backend {
         }
     }
 
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        if Language::for_uri(&uri) != Some(Language::Sampler) {
+            return Ok(None);
+        }
+        let position = params.text_document_position_params.position;
+        let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
+            return Ok(None);
+        };
+        Ok(sampler_signature_help(&uri, text, position).await)
+    }
+
     async fn goto_definition(
         &self,
         params: GotoDefinitionParams,
@@ -237,6 +326,11 @@ impl LanguageServer for Backend {
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
+        if let Some(language) = Language::for_uri(&uri) {
+            return Ok(sampler_definition(&uri, language, text, position)
+                .await
+                .map(GotoDefinitionResponse::Scalar));
+        }
 
         let offset = position::position_to_offset(&text, position);
         let analysis = analysis::analyze(&text);
@@ -297,6 +391,9 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri;
+        if Language::for_uri(&uri).is_some() {
+            return Ok(None);
+        }
         let Some(text) = self.documents.get(&uri).map(|entry| entry.clone()) else {
             return Ok(None);
         };
@@ -330,4 +427,195 @@ fn package_prefix(prefix: &str) -> Option<String> {
     } else {
         Some(name)
     }
+}
+
+/// How long a kernel index is reused. Building one scans the project for
+/// `.lapkernel` files: milliseconds in a project, but up to a second for a
+/// sampler with no laplace.lock in a large directory (Q9), and completion
+/// asks on every keystroke.
+const INDEX_TTL: Duration = Duration::from_secs(10);
+
+type IndexCache = DashMap<std::path::PathBuf, (std::time::Instant, Arc<features::Index>)>;
+
+/// Kernel indexes by sampler directory. Cleared when a `.lapkernel` is
+/// saved, so a new or edited kernel shows at once.
+fn index_cache() -> &'static IndexCache {
+    static CACHE: std::sync::OnceLock<IndexCache> = std::sync::OnceLock::new();
+    CACHE.get_or_init(DashMap::new)
+}
+
+/// The kernel index for a `.lapsampler` (read from disk off the async
+/// executor, then reused for [`INDEX_TTL`]). `None` for a `.lapkernel`,
+/// which needs none.
+async fn sampler_index(uri: &Url, language: Language) -> Option<Arc<features::Index>> {
+    if language != Language::Sampler {
+        return None;
+    }
+    let path = uri.to_file_path().ok()?;
+    let dir = path.parent()?.to_path_buf();
+    if let Some(entry) = index_cache().get(&dir) {
+        if entry.0.elapsed() < INDEX_TTL {
+            return Some(entry.1.clone());
+        }
+    }
+    let index = tokio::task::spawn_blocking(move || features::Index::for_document(&path))
+        .await
+        .ok()?;
+    let index = Arc::new(index);
+    index_cache().insert(dir, (std::time::Instant::now(), index.clone()));
+    Some(index)
+}
+
+/// A byte range of `text` as an LSP range.
+fn lsp_range(text: &str, range: std::ops::Range<usize>) -> Range {
+    let starts = position::line_starts(text);
+    Range {
+        start: position::offset_to_position(text, &starts, range.start),
+        end: position::offset_to_position(text, &starts, range.end),
+    }
+}
+
+async fn sampler_hover(
+    uri: &Url,
+    language: Language,
+    text: String,
+    position: Position,
+) -> Option<Hover> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, language).await;
+    let (range, markdown) = features::hover(language, &text, offset, index.as_deref())?;
+    Some(Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: markdown,
+        }),
+        range: Some(lsp_range(&text, range)),
+    })
+}
+
+async fn sampler_completion(
+    uri: &Url,
+    language: Language,
+    text: String,
+    position: Position,
+) -> Vec<CompletionItem> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, language).await;
+    // The model, for parameter names in block(...): one small file read.
+    let model = match (language, uri.to_file_path()) {
+        (Language::Sampler, Ok(path)) => {
+            let text = text.clone();
+            tokio::task::spawn_blocking(move || model::load(&path, &text))
+                .await
+                .ok()
+                .flatten()
+        }
+        _ => None,
+    };
+    features::completion(language, &text, offset, index.as_deref(), model.as_ref())
+        .into_iter()
+        .map(|item| CompletionItem {
+            label: item.label.clone(),
+            kind: Some(match item.kind {
+                features::ItemKind::Value => CompletionItemKind::VARIABLE,
+                features::ItemKind::Function => CompletionItemKind::FUNCTION,
+                features::ItemKind::Keyword => CompletionItemKind::KEYWORD,
+                features::ItemKind::Setting => CompletionItemKind::PROPERTY,
+                features::ItemKind::Parameter => CompletionItemKind::FIELD,
+            }),
+            detail: item.detail,
+            documentation: item.documentation.map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+            sort_text: Some(item.sort),
+            filter_text: Some(item.label),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                range: lsp_range(&text, item.replace),
+                new_text: item.insert,
+            })),
+            ..Default::default()
+        })
+        .collect()
+}
+
+/// Where built-in kernels' sources are written for go-to-definition:
+/// `$XDG_CACHE_HOME/laplace-lsp/builtin-kernels`, else under `~/.cache`.
+fn builtin_kernels_cache() -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .filter(|v| !v.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| Path::new(&h).join(".cache")))?;
+    Some(base.join("laplace-lsp").join("builtin-kernels"))
+}
+
+async fn sampler_definition(
+    uri: &Url,
+    language: Language,
+    text: String,
+    position: Position,
+) -> Option<Location> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, language).await?;
+    tokio::task::spawn_blocking(move || {
+        let (file, range) = match features::definition(&text, offset, &index)? {
+            features::Definition::File(file, range) => (file, range),
+            features::Definition::BuiltIn(b) => {
+                let file = features::builtin_source_file(&builtin_kernels_cache()?, b).ok()?;
+                (file, 0..0)
+            }
+        };
+        let source = std::fs::read_to_string(&file).ok()?;
+        Some(Location {
+            uri: Url::from_file_path(&file).ok()?,
+            range: lsp_range(&source, range),
+        })
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+async fn sampler_signature_help(
+    uri: &Url,
+    text: String,
+    position: Position,
+) -> Option<SignatureHelp> {
+    let offset = position::position_to_offset(&text, position);
+    let index = sampler_index(uri, Language::Sampler).await?;
+    let sig = features::signature_help(&text, offset, &index)?;
+    // Parameter labels are [start, end) offsets into the label, in UTF-16
+    // code units.
+    let utf16 = |byte: usize| sig.label[..byte].encode_utf16().count() as u32;
+    let parameters = sig
+        .parameters
+        .iter()
+        .map(|(range, doc)| ParameterInformation {
+            label: ParameterLabel::LabelOffsets([utf16(range.start), utf16(range.end)]),
+            documentation: doc.clone().map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+        })
+        .collect();
+    Some(SignatureHelp {
+        signatures: vec![SignatureInformation {
+            label: sig.label.clone(),
+            documentation: sig.documentation.map(|value| {
+                Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value,
+                })
+            }),
+            parameters: Some(parameters),
+            active_parameter: sig.active.map(|a| a as u32),
+        }],
+        active_signature: Some(0),
+        active_parameter: sig.active.map(|a| a as u32),
+    })
 }

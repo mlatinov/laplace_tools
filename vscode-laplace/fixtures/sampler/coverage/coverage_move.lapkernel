@@ -1,0 +1,7 @@
+//@laplace
+//@brief Coverage fixture: a direct kernel, ending in move()
+kernel stay {
+  step {
+    move(q);
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "sampler": {
+    "prefix": ["sampler"],
+    "description": "A .lapsampler skeleton: one kernel line, warmup and draws.",
+    "body": [
+      "sampler ${1:my_sampler} {",
+      "  kernel {",
+      "    ${2:rest : nuts()}",
+      "  }",
+      "  warmup { iterations = ${3:1000}; }",
+      "  draws  { iterations = ${4:1000}; }",
+      "}",
+      "$0"
+    ]
+  },
+  "block": {
+    "prefix": ["block"],
+    "description": "One kernel line: the parameters it updates, and its kernel.",
+    "body": [
+      "block(${1:param}) : ${2:nuts()}$0"
+    ]
+  },
+  "adapt": {
+    "prefix": ["adapt"],
+    "description": "Wrap a kernel in adapt(): step size (and metric) adapted in warmup, toward target_accept.",
+    "body": [
+      "adapt(${1:mala()}, target_accept = ${2:0.574})$0"
+    ]
+  }
+}

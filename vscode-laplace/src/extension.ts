@@ -10,6 +10,7 @@ import {
 import { hasMathFence, renderMathFences } from "./docs";
 import { clearCache, renderMath, Theme } from "./math";
 import { activateSymbols, SYMBOLS_SETTING } from "./symbolsEditor";
+import { SERVER_LANGUAGES } from "./languages";
 
 let client: LanguageClient | undefined;
 
@@ -81,18 +82,16 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      { scheme: "file", language: "laplace" },
-      { scheme: "file", language: "laplacelib" },
-    ],
+    documentSelector: SERVER_LANGUAGES.map((language) => ({ scheme: "file", language })),
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher("**/laplace.{toml,lock}"),
     },
     middleware: {
-      // `laplace-lsp` has no `resolveCompletionItem` and no signature-help
-      // provider, and its completion items carry only `@brief` -- never a
-      // math section -- so the hover is the one place docs can contain a
-      // formula. If that changes, the same two lines go on those providers.
+      // `laplace-lsp` has no `resolveCompletionItem`, its `.laplace`
+      // completion items carry only `@brief` -- never a math section -- and
+      // its signature help is for `.lapsampler` files, whose docs have no
+      // `//@math`. So the hover is the one place a formula can appear. If
+      // that changes, the same two lines go on those providers.
       provideHover: async (document, position, token, next: ProvideHoverSignature) => {
         const hover = await next(document, position, token);
         if (!hover || !renderMathEnabled()) {

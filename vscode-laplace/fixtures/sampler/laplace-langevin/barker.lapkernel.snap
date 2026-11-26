@@ -1,0 +1,336 @@
+>//@laplace
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel storage.type.annotation.lapkernel
+>//@brief Barker proposal: gradient-informed and robust to a mistuned step size
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>//@param eps Step size (adapted toward 0.4 acceptance)
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#         ^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel variable.parameter.lapkernel
+#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>//@param m Diagonal inverse metric (adapted in warmup)
+#^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#  ^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel keyword.other.doctag.lapkernel
+#        ^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+#         ^ source.lapkernel comment.line.double-slash.documentation.lapkernel variable.parameter.lapkernel
+#          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.documentation.lapkernel
+>//
+#^^ source.lapkernel comment.line.double-slash.lapkernel
+>// Livingstone & Zanella (2022), "The Barker proposal: combining robustness
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// and efficiency in gradient-based MCMC", JRSS-B 84(2). Each coordinate
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// draws a symmetric increment z_i ~ N(0, eps^2 m_i) and keeps its sign with
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// probability 1 / (1 + exp(-z_i * grad_i)), otherwise flips it: a move
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// tilted toward higher density by the gradient, but bounded by z_i (MALA's
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// drift grows with the gradient, which is what makes MALA fragile when the
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// step size is too large or the gradient is steep).
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>//
+#^^ source.lapkernel comment.line.double-slash.lapkernel
+>// Metropolis-Hastings correction, log Q(q_new -> q) - log Q(q -> q_new):
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>//   sum_i log1p_exp(-(q_new_i - q_i) grad_i(q)) - log1p_exp(-(q_i - q_new_i) grad_i(q_new))
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// The authors recommend a target acceptance of about 0.4. Under adapt(),
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// acceptance settles at about 0.25-0.37 instead: dual averaging assumes it
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// falls steadily as the step size grows, and Barker's barely changes. That
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// costs efficiency, not correctness (Barker passes simulation-based
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// calibration); it is why tests/barker.test.toml asks for long runs.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>//
+#^^ source.lapkernel comment.line.double-slash.lapkernel
+>// Random numbers per step: dim normals, then dim uniforms (one per
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>// coordinate, in index order), then propose()'s one uniform.
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>kernel barker {
+#^^^^^^ source.lapkernel keyword.control.block.kernel.lapkernel
+#      ^ source.lapkernel
+#       ^^^^^^ source.lapkernel entity.name.type.kernel.lapkernel
+#             ^^^ source.lapkernel
+>  tuning {
+#^^ source.lapkernel
+#  ^^^^^^ source.lapkernel keyword.control.block.lapkernel
+#        ^^^ source.lapkernel
+>    real<lower=0> eps = 1 @adapt(step_size, target_accept = 0.4);
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^ source.lapkernel keyword.operator.laplace
+#         ^^^^^ source.lapkernel storage.modifier.bound.lapkernel
+#              ^ source.lapkernel keyword.operator.laplace
+#               ^ source.lapkernel constant.numeric.lapkernel
+#                ^ source.lapkernel keyword.operator.laplace
+#                 ^^^^^ source.lapkernel
+#                      ^ source.lapkernel keyword.operator.laplace
+#                       ^ source.lapkernel
+#                        ^ source.lapkernel constant.numeric.lapkernel
+#                         ^ source.lapkernel
+#                          ^^^^^^ source.lapkernel storage.type.annotation.adapt.lapkernel
+#                                ^ source.lapkernel punctuation.definition.annotation.begin.lapkernel
+#                                 ^^^^^^^^^ source.lapkernel constant.language.adapt-kind.lapkernel
+#                                          ^^ source.lapkernel
+#                                            ^^^^^^^^^^^^^ source.lapkernel variable.parameter.adapt.lapkernel
+#                                                         ^ source.lapkernel
+#                                                          ^ source.lapkernel keyword.operator.laplace
+#                                                           ^ source.lapkernel
+#                                                            ^^^ source.lapkernel constant.numeric.lapkernel
+#                                                               ^ source.lapkernel punctuation.definition.annotation.end.lapkernel
+#                                                                ^^ source.lapkernel
+>    vector<lower=0>[dim] m = rep_vector(1, dim) @adapt(metric);
+#^^^^ source.lapkernel
+#    ^^^^^^ source.lapkernel storage.type.lapkernel
+#          ^ source.lapkernel keyword.operator.laplace
+#           ^^^^^ source.lapkernel storage.modifier.bound.lapkernel
+#                ^ source.lapkernel keyword.operator.laplace
+#                 ^ source.lapkernel constant.numeric.lapkernel
+#                  ^ source.lapkernel keyword.operator.laplace
+#                   ^ source.lapkernel
+#                    ^^^ source.lapkernel constant.language.context.lapkernel
+#                       ^^^^ source.lapkernel
+#                           ^ source.lapkernel keyword.operator.laplace
+#                            ^ source.lapkernel
+#                             ^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                       ^ source.lapkernel
+#                                        ^ source.lapkernel constant.numeric.lapkernel
+#                                         ^^ source.lapkernel
+#                                           ^^^ source.lapkernel constant.language.context.lapkernel
+#                                              ^^ source.lapkernel
+#                                                ^^^^^^ source.lapkernel storage.type.annotation.adapt.lapkernel
+#                                                      ^ source.lapkernel punctuation.definition.annotation.begin.lapkernel
+#                                                       ^^^^^^ source.lapkernel constant.language.adapt-kind.lapkernel
+#                                                             ^ source.lapkernel punctuation.definition.annotation.end.lapkernel
+#                                                              ^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>  functions {
+#^^ source.lapkernel
+#  ^^^^^^^^^ source.lapkernel keyword.control.block.lapkernel
+#           ^^^ source.lapkernel
+>    // log(1 + exp(x)) without overflow for large x.
+#^^^^ source.lapkernel
+#    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.lapkernel comment.line.double-slash.lapkernel
+>    real log1p_exp(real x) {
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^ source.lapkernel
+#         ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                  ^ source.lapkernel
+#                   ^^^^ source.lapkernel storage.type.lapkernel
+#                       ^^^^^^ source.lapkernel
+>      if (x > 0) {
+#^^^^^^ source.lapkernel
+#      ^^ source.lapkernel keyword.control.lapkernel
+#        ^^^^ source.lapkernel
+#            ^ source.lapkernel keyword.operator.laplace
+#             ^ source.lapkernel
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^^^^ source.lapkernel
+>        return x + log(1 + exp(-x));
+#^^^^^^^^ source.lapkernel
+#        ^^^^^^ source.lapkernel keyword.control.lapkernel
+#              ^^^ source.lapkernel
+#                 ^ source.lapkernel keyword.operator.laplace
+#                  ^ source.lapkernel
+#                   ^^^ source.lapkernel support.function.builtin.lapkernel
+#                      ^ source.lapkernel
+#                       ^ source.lapkernel constant.numeric.lapkernel
+#                        ^ source.lapkernel
+#                         ^ source.lapkernel keyword.operator.laplace
+#                          ^ source.lapkernel
+#                           ^^^ source.lapkernel support.function.builtin.lapkernel
+#                              ^ source.lapkernel
+#                               ^ source.lapkernel keyword.operator.laplace
+#                                ^^^^^ source.lapkernel
+>      }
+#^^^^^^^^ source.lapkernel
+>      return log(1 + exp(x));
+#^^^^^^ source.lapkernel
+#      ^^^^^^ source.lapkernel keyword.control.lapkernel
+#            ^ source.lapkernel
+#             ^^^ source.lapkernel support.function.builtin.lapkernel
+#                ^ source.lapkernel
+#                 ^ source.lapkernel constant.numeric.lapkernel
+#                  ^ source.lapkernel
+#                   ^ source.lapkernel keyword.operator.laplace
+#                    ^ source.lapkernel
+#                     ^^^ source.lapkernel support.function.builtin.lapkernel
+#                        ^^^^^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>  step {
+#^^ source.lapkernel
+#  ^^^^ source.lapkernel keyword.control.block.lapkernel
+#      ^^^ source.lapkernel
+>    vector[dim] z = eps * sqrt(m) .* std_normal_rng(dim);
+#^^^^ source.lapkernel
+#    ^^^^^^ source.lapkernel storage.type.lapkernel
+#          ^ source.lapkernel
+#           ^^^ source.lapkernel constant.language.context.lapkernel
+#              ^^^^ source.lapkernel
+#                  ^ source.lapkernel keyword.operator.laplace
+#                   ^^^^^ source.lapkernel
+#                        ^ source.lapkernel keyword.operator.laplace
+#                         ^ source.lapkernel
+#                          ^^^^ source.lapkernel support.function.builtin.lapkernel
+#                              ^^^^ source.lapkernel
+#                                  ^^ source.lapkernel keyword.operator.elementwise.lapkernel
+#                                    ^ source.lapkernel
+#                                     ^^^^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                   ^ source.lapkernel
+#                                                    ^^^ source.lapkernel constant.language.context.lapkernel
+#                                                       ^^^ source.lapkernel
+>    vector[dim] q_new = q;
+#^^^^ source.lapkernel
+#    ^^^^^^ source.lapkernel storage.type.lapkernel
+#          ^ source.lapkernel
+#           ^^^ source.lapkernel constant.language.context.lapkernel
+#              ^^^^^^^^ source.lapkernel
+#                      ^ source.lapkernel keyword.operator.laplace
+#                       ^ source.lapkernel
+#                        ^ source.lapkernel constant.language.context.lapkernel
+#                         ^^ source.lapkernel
+>    for (i in 1:dim) {
+#^^^^ source.lapkernel
+#    ^^^ source.lapkernel keyword.control.lapkernel
+#       ^^^^ source.lapkernel
+#           ^^ source.lapkernel keyword.control.lapkernel
+#             ^ source.lapkernel
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^ source.lapkernel
+#                ^^^ source.lapkernel constant.language.context.lapkernel
+#                   ^^^^ source.lapkernel
+>      if (uniform_rng(0, 1) * (1 + exp(-z[i] * grad[i])) < 1) {
+#^^^^^^ source.lapkernel
+#      ^^ source.lapkernel keyword.control.lapkernel
+#        ^^ source.lapkernel
+#          ^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                     ^ source.lapkernel
+#                      ^ source.lapkernel constant.numeric.lapkernel
+#                       ^^ source.lapkernel
+#                         ^ source.lapkernel constant.numeric.lapkernel
+#                          ^^ source.lapkernel
+#                            ^ source.lapkernel keyword.operator.laplace
+#                             ^^ source.lapkernel
+#                               ^ source.lapkernel constant.numeric.lapkernel
+#                                ^ source.lapkernel
+#                                 ^ source.lapkernel keyword.operator.laplace
+#                                  ^ source.lapkernel
+#                                   ^^^ source.lapkernel support.function.builtin.lapkernel
+#                                      ^ source.lapkernel
+#                                       ^ source.lapkernel keyword.operator.laplace
+#                                        ^^^^^ source.lapkernel
+#                                             ^ source.lapkernel keyword.operator.laplace
+#                                              ^ source.lapkernel
+#                                               ^^^^ source.lapkernel constant.language.context.lapkernel
+#                                                   ^^^^^^ source.lapkernel
+#                                                         ^ source.lapkernel keyword.operator.laplace
+#                                                          ^ source.lapkernel
+#                                                           ^ source.lapkernel constant.numeric.lapkernel
+#                                                            ^^^^ source.lapkernel
+>        q_new[i] = q[i] + z[i];
+#^^^^^^^^^^^^^^^^^ source.lapkernel
+#                 ^ source.lapkernel keyword.operator.laplace
+#                  ^ source.lapkernel
+#                   ^ source.lapkernel constant.language.context.lapkernel
+#                    ^^^^ source.lapkernel
+#                        ^ source.lapkernel keyword.operator.laplace
+#                         ^^^^^^^ source.lapkernel
+>      } else {
+#^^^^^^^^ source.lapkernel
+#        ^^^^ source.lapkernel keyword.control.lapkernel
+#            ^^^ source.lapkernel
+>        q_new[i] = q[i] - z[i];
+#^^^^^^^^^^^^^^^^^ source.lapkernel
+#                 ^ source.lapkernel keyword.operator.laplace
+#                  ^ source.lapkernel
+#                   ^ source.lapkernel constant.language.context.lapkernel
+#                    ^^^^ source.lapkernel
+#                        ^ source.lapkernel keyword.operator.laplace
+#                         ^^^^^^^ source.lapkernel
+>      }
+#^^^^^^^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>    (real lp_new, vector[dim] g_new) = log_density_grad(q_new);
+#^^^^^ source.lapkernel
+#     ^^^^ source.lapkernel storage.type.lapkernel
+#         ^^^^^^^^^ source.lapkernel
+#                  ^^^^^^ source.lapkernel storage.type.lapkernel
+#                        ^ source.lapkernel
+#                         ^^^ source.lapkernel constant.language.context.lapkernel
+#                            ^^^^^^^^^ source.lapkernel
+#                                     ^ source.lapkernel keyword.operator.laplace
+#                                      ^ source.lapkernel
+#                                       ^^^^^^^^^^^^^^^^ source.lapkernel support.function.context.lapkernel
+#                                                       ^^^^^^^^^ source.lapkernel
+>    real c = 0;
+#^^^^ source.lapkernel
+#    ^^^^ source.lapkernel storage.type.lapkernel
+#        ^^^ source.lapkernel
+#           ^ source.lapkernel keyword.operator.laplace
+#            ^ source.lapkernel
+#             ^ source.lapkernel constant.numeric.lapkernel
+#              ^^ source.lapkernel
+>    for (i in 1:dim) {
+#^^^^ source.lapkernel
+#    ^^^ source.lapkernel keyword.control.lapkernel
+#       ^^^^ source.lapkernel
+#           ^^ source.lapkernel keyword.control.lapkernel
+#             ^ source.lapkernel
+#              ^ source.lapkernel constant.numeric.lapkernel
+#               ^ source.lapkernel
+#                ^^^ source.lapkernel constant.language.context.lapkernel
+#                   ^^^^ source.lapkernel
+>      c += log1p_exp(-(q_new[i] - q[i]) * grad[i]) - log1p_exp(-(q[i] - q_new[i]) * g_new[i]);
+#^^^^^^^^ source.lapkernel
+#        ^^ source.lapkernel keyword.operator.laplace
+#          ^ source.lapkernel
+#           ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                    ^ source.lapkernel
+#                     ^ source.lapkernel keyword.operator.laplace
+#                      ^^^^^^^^^^ source.lapkernel
+#                                ^ source.lapkernel keyword.operator.laplace
+#                                 ^ source.lapkernel
+#                                  ^ source.lapkernel constant.language.context.lapkernel
+#                                   ^^^^^ source.lapkernel
+#                                        ^ source.lapkernel keyword.operator.laplace
+#                                         ^ source.lapkernel
+#                                          ^^^^ source.lapkernel constant.language.context.lapkernel
+#                                              ^^^^^ source.lapkernel
+#                                                   ^ source.lapkernel keyword.operator.laplace
+#                                                    ^ source.lapkernel
+#                                                     ^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
+#                                                              ^ source.lapkernel
+#                                                               ^ source.lapkernel keyword.operator.laplace
+#                                                                ^ source.lapkernel
+#                                                                 ^ source.lapkernel constant.language.context.lapkernel
+#                                                                  ^^^^ source.lapkernel
+#                                                                      ^ source.lapkernel keyword.operator.laplace
+#                                                                       ^^^^^^^^^^^ source.lapkernel
+#                                                                                  ^ source.lapkernel keyword.operator.laplace
+#                                                                                   ^^^^^^^^^^^^ source.lapkernel
+>    }
+#^^^^^^ source.lapkernel
+>    propose(q_new, c);
+#^^^^ source.lapkernel
+#    ^^^^^^^ source.lapkernel keyword.control.terminal.lapkernel
+#           ^^^^^^^^^^^^ source.lapkernel
+>  }
+#^^^^ source.lapkernel
+>}
+#^^ source.lapkernel
+>

@@ -25,6 +25,12 @@ Two pieces, built independently:
 
 ## What you get
 
+`.lapkernel` and `.lapsampler` files (custom samplers, experimental in
+`laplace` 0.3.0) get highlighting, snippets, live diagnostics, hover,
+completion, go-to-definition and signature help. See the extension's
+[README](vscode-laplace/README.md#sampler-files-experimental). The rest of
+this section is about `.laplace`, `.laplacelib` and `.stan` files.
+
 - **Block-role coloring** — identifiers declared in `data`, `parameters`,
   `transformed parameters`, and `generated quantities` blocks are colored
   distinctly, including every usage inside `model {}`, not just the

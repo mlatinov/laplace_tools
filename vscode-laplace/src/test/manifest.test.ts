@@ -58,3 +58,19 @@ test("commands are grouped under one palette category", () => {
     assert.equal(c.category, "Laplace", `${c.command} should be filed under "Laplace"`);
   }
 });
+
+test("every Laplace file extension gets the Laplace icon, in dark and light themes", () => {
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+    contributes: { languages: { extensions: string[] }[] };
+  };
+  const theme = JSON.parse(readFileSync(join(root, "icons", "seti", "vs-seti-icon-theme.json"), "utf8")) as {
+    fileExtensions: Record<string, string>;
+    light: { fileExtensions: Record<string, string> };
+  };
+  const extensions = manifest.contributes.languages.flatMap((l) => l.extensions.map((e) => e.replace(/^\./, "")));
+  assert.deepEqual(extensions, ["laplace", "laplacelib", "lapkernel", "lapsampler"]);
+  for (const ext of extensions) {
+    assert.equal(theme.fileExtensions[ext], "_laplace_file", ext);
+    assert.equal(theme.light.fileExtensions[ext], "_laplace_file_light", ext);
+  }
+});

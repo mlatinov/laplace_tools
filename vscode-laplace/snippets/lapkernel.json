@@ -1,0 +1,49 @@
+{
+  "kernel (Metropolis-Hastings)": {
+    "prefix": ["kernel"],
+    "description": "A Metropolis-Hastings kernel ending in propose(): what `laplace new kernel <name>` writes.",
+    "body": [
+      "//@laplace",
+      "//@brief ${1:my_kernel}: ${2:a one-line description of the kernel}",
+      "//@param eps Step size (adapted toward 0.234 acceptance)",
+      "//@param m Diagonal inverse metric (adapted in warmup)",
+      "//",
+      "// A Metropolis-Hastings kernel: the step ends in propose(q_new, c), and",
+      "// laplace-sample accepts or rejects q_new with log probability",
+      "// lp(q_new) - lp(q) + c, where c is the log proposal correction",
+      "// log g(q | q_new) - log g(q_new | q) (0 for a symmetric proposal).",
+      "// Replace the random walk below with your proposal.",
+      "kernel $1 {",
+      "  tuning {",
+      "    real<lower=0> eps = 1 @adapt(step_size, target_accept = 0.234);",
+      "    vector<lower=0>[dim] m = rep_vector(1, dim) @adapt(metric);",
+      "  }",
+      "  step {",
+      "    $0vector[dim] q_new = q + eps * sqrt(m) .* std_normal_rng(dim);",
+      "    propose(q_new, 0);",
+      "  }",
+      "}",
+      ""
+    ]
+  },
+  "kernel (direct, ends in move)": {
+    "prefix": ["kernel-direct"],
+    "description": "A direct kernel ending in move(): what `laplace new kernel <name> --kind direct` writes.",
+    "body": [
+      "//@laplace",
+      "//@brief ${1:my_kernel}: ${2:a one-line description of the kernel}",
+      "//",
+      "// A direct kernel: the step ends in move(q_new), which is always taken.",
+      "// Nothing is accepted or rejected for you, so the step itself must leave",
+      "// the target invariant (an exact conditional draw, say, or a kernel that",
+      "// does its own accept/reject). This skeleton stays where it is, which is",
+      "// trivially invariant: replace it.",
+      "kernel $1 {",
+      "  step {",
+      "    $0move(q);",
+      "  }",
+      "}",
+      ""
+    ]
+  }
+}

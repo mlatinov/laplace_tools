@@ -1,0 +1,55 @@
+//@laplace
+//@brief Barker proposal: gradient-informed and robust to a mistuned step size
+//@param eps Step size (adapted toward 0.4 acceptance)
+//@param m Diagonal inverse metric (adapted in warmup)
+//
+// Livingstone & Zanella (2022), "The Barker proposal: combining robustness
+// and efficiency in gradient-based MCMC", JRSS-B 84(2). Each coordinate
+// draws a symmetric increment z_i ~ N(0, eps^2 m_i) and keeps its sign with
+// probability 1 / (1 + exp(-z_i * grad_i)), otherwise flips it: a move
+// tilted toward higher density by the gradient, but bounded by z_i (MALA's
+// drift grows with the gradient, which is what makes MALA fragile when the
+// step size is too large or the gradient is steep).
+//
+// Metropolis-Hastings correction, log Q(q_new -> q) - log Q(q -> q_new):
+//   sum_i log1p_exp(-(q_new_i - q_i) grad_i(q)) - log1p_exp(-(q_i - q_new_i) grad_i(q_new))
+// The authors recommend a target acceptance of about 0.4. Under adapt(),
+// acceptance settles at about 0.25-0.37 instead: dual averaging assumes it
+// falls steadily as the step size grows, and Barker's barely changes. That
+// costs efficiency, not correctness (Barker passes simulation-based
+// calibration); it is why tests/barker.test.toml asks for long runs.
+//
+// Random numbers per step: dim normals, then dim uniforms (one per
+// coordinate, in index order), then propose()'s one uniform.
+kernel barker {
+  tuning {
+    real<lower=0> eps = 1 @adapt(step_size, target_accept = 0.4);
+    vector<lower=0>[dim] m = rep_vector(1, dim) @adapt(metric);
+  }
+  functions {
+    // log(1 + exp(x)) without overflow for large x.
+    real log1p_exp(real x) {
+      if (x > 0) {
+        return x + log(1 + exp(-x));
+      }
+      return log(1 + exp(x));
+    }
+  }
+  step {
+    vector[dim] z = eps * sqrt(m) .* std_normal_rng(dim);
+    vector[dim] q_new = q;
+    for (i in 1:dim) {
+      if (uniform_rng(0, 1) * (1 + exp(-z[i] * grad[i])) < 1) {
+        q_new[i] = q[i] + z[i];
+      } else {
+        q_new[i] = q[i] - z[i];
+      }
+    }
+    (real lp_new, vector[dim] g_new) = log_density_grad(q_new);
+    real c = 0;
+    for (i in 1:dim) {
+      c += log1p_exp(-(q_new[i] - q[i]) * grad[i]) - log1p_exp(-(q[i] - q_new[i]) * g_new[i]);
+    }
+    propose(q_new, c);
+  }
+}
