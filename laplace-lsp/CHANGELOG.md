@@ -14,6 +14,9 @@
   `@adapt(...)` shows that tag's algorithm and schedule. Hover on `propose`
   and `move` explains the accept rule, the correction term, rejection, and
   how each interacts with `@adapt`.
+- Hover on `q`, `lp`, `grad`, `dim`, `metric`, `log_density`,
+  `log_density_grad` and `leapfrog` explains each one in full: its scale and
+  convention, its cost, and its behaviour under a block.
 - Kernels get laplace's new math library (`inv_logit`, `log1p_exp`,
   `log_sum_exp`, `fmax`, `softmax`, ... with hover docs). A kernel function
   with a library function's name shows as the kernel's own function.

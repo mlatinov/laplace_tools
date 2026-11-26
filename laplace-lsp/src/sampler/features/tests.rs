@@ -116,8 +116,9 @@ fn kernel_hover_on_context_values_and_terminals() {
     };
     assert!(md("q +")
         .unwrap()
-        .starts_with("```lapkernel\nvector[dim] q\n```\n\ncurrent position"));
+        .starts_with("```lapkernel\nvector[dim] q\n```\n\nThe chain's current position"));
     let dim = md("dim)").unwrap();
+    assert!(dim.contains("allowed in tuning defaults"), "{dim}");
     assert!(dim.starts_with("```lapkernel\nint dim\n```"), "{dim}");
     assert!(dim.ends_with("*Also allowed in tuning defaults.*"), "{dim}");
     let mv = md("move").unwrap();
@@ -216,6 +217,31 @@ fn kernel_hover_on_the_math_library_and_on_own_functions() {
     assert!(defines_function("tuple(real, vector) f(real x)", "f"));
     assert!(defines_function("vector[n] f(real x)", "f"));
     assert!(!defines_function("x = w[i] * f(1)", "f"));
+}
+
+#[test]
+fn kernel_hover_explains_the_context_values() {
+    let src = "kernel k {\n  step {\n    vector[dim] z = sqrt(metric) .* grad;\n    propose(q + z, lp - log_density(q));\n  }\n}\n";
+    let md = |word: &str| {
+        hover(Language::Kernel, src, src.find(word).unwrap() + 1, None)
+            .unwrap()
+            .1
+    };
+    for (word, parts) in [
+        ("q + z", &["unconstrained", "block"][..]),
+        ("lp -", &["propto", "Jacobian", "lp_new - lp"][..]),
+        ("grad;", &["Costs a gradient evaluation", "n_grad__"][..]),
+        (
+            "metric)",
+            &["inverse metric", "@adapt(metric)", "sqrt(metric)"][..],
+        ),
+        ("log_density(", &["cached", "-inf"][..]),
+    ] {
+        let m = md(word);
+        for p in parts {
+            assert!(m.contains(p), "{word}: {p} in {m}");
+        }
+    }
 }
 
 #[test]

@@ -97,7 +97,7 @@
 #                 ^ source.lapkernel constant.numeric.lapkernel
 #                  ^ source.lapkernel keyword.operator.laplace
 #                   ^ source.lapkernel
-#                    ^^^ source.lapkernel variable.language.context.lapkernel
+#                    ^^^ source.lapkernel constant.language.context.lapkernel
 #                       ^^^^ source.lapkernel
 #                           ^ source.lapkernel keyword.operator.laplace
 #                            ^ source.lapkernel
@@ -105,7 +105,7 @@
 #                                       ^ source.lapkernel
 #                                        ^ source.lapkernel constant.numeric.lapkernel
 #                                         ^^ source.lapkernel
-#                                           ^^^ source.lapkernel variable.language.context.lapkernel
+#                                           ^^^ source.lapkernel constant.language.context.lapkernel
 #                                              ^^ source.lapkernel
 #                                                ^^^^^^ source.lapkernel storage.type.annotation.adapt.lapkernel
 #                                                      ^ source.lapkernel punctuation.definition.annotation.begin.lapkernel
@@ -179,7 +179,7 @@
 #^^^^ source.lapkernel
 #    ^^^^^^ source.lapkernel storage.type.lapkernel
 #          ^ source.lapkernel
-#           ^^^ source.lapkernel variable.language.context.lapkernel
+#           ^^^ source.lapkernel constant.language.context.lapkernel
 #              ^^^^ source.lapkernel
 #                  ^ source.lapkernel keyword.operator.laplace
 #                   ^^^^^ source.lapkernel
@@ -191,17 +191,17 @@
 #                                    ^ source.lapkernel
 #                                     ^^^^^^^^^^^^^^ source.lapkernel support.function.builtin.lapkernel
 #                                                   ^ source.lapkernel
-#                                                    ^^^ source.lapkernel variable.language.context.lapkernel
+#                                                    ^^^ source.lapkernel constant.language.context.lapkernel
 #                                                       ^^^ source.lapkernel
 >    vector[dim] q_new = q;
 #^^^^ source.lapkernel
 #    ^^^^^^ source.lapkernel storage.type.lapkernel
 #          ^ source.lapkernel
-#           ^^^ source.lapkernel variable.language.context.lapkernel
+#           ^^^ source.lapkernel constant.language.context.lapkernel
 #              ^^^^^^^^ source.lapkernel
 #                      ^ source.lapkernel keyword.operator.laplace
 #                       ^ source.lapkernel
-#                        ^ source.lapkernel variable.language.context.lapkernel
+#                        ^ source.lapkernel constant.language.context.lapkernel
 #                         ^^ source.lapkernel
 >    for (i in 1:dim) {
 #^^^^ source.lapkernel
@@ -211,7 +211,7 @@
 #             ^ source.lapkernel
 #              ^ source.lapkernel constant.numeric.lapkernel
 #               ^ source.lapkernel
-#                ^^^ source.lapkernel variable.language.context.lapkernel
+#                ^^^ source.lapkernel constant.language.context.lapkernel
 #                   ^^^^ source.lapkernel
 >      if (uniform_rng(0, 1) * (1 + exp(-z[i] * grad[i])) < 1) {
 #^^^^^^ source.lapkernel
@@ -235,7 +235,7 @@
 #                                        ^^^^^ source.lapkernel
 #                                             ^ source.lapkernel keyword.operator.laplace
 #                                              ^ source.lapkernel
-#                                               ^^^^ source.lapkernel variable.language.context.lapkernel
+#                                               ^^^^ source.lapkernel constant.language.context.lapkernel
 #                                                   ^^^^^^ source.lapkernel
 #                                                         ^ source.lapkernel keyword.operator.laplace
 #                                                          ^ source.lapkernel
@@ -245,7 +245,7 @@
 #^^^^^^^^^^^^^^^^^ source.lapkernel
 #                 ^ source.lapkernel keyword.operator.laplace
 #                  ^ source.lapkernel
-#                   ^ source.lapkernel variable.language.context.lapkernel
+#                   ^ source.lapkernel constant.language.context.lapkernel
 #                    ^^^^ source.lapkernel
 #                        ^ source.lapkernel keyword.operator.laplace
 #                         ^^^^^^^ source.lapkernel
@@ -257,7 +257,7 @@
 #^^^^^^^^^^^^^^^^^ source.lapkernel
 #                 ^ source.lapkernel keyword.operator.laplace
 #                  ^ source.lapkernel
-#                   ^ source.lapkernel variable.language.context.lapkernel
+#                   ^ source.lapkernel constant.language.context.lapkernel
 #                    ^^^^ source.lapkernel
 #                        ^ source.lapkernel keyword.operator.laplace
 #                         ^^^^^^^ source.lapkernel
@@ -271,7 +271,7 @@
 #         ^^^^^^^^^ source.lapkernel
 #                  ^^^^^^ source.lapkernel storage.type.lapkernel
 #                        ^ source.lapkernel
-#                         ^^^ source.lapkernel variable.language.context.lapkernel
+#                         ^^^ source.lapkernel constant.language.context.lapkernel
 #                            ^^^^^^^^^ source.lapkernel
 #                                     ^ source.lapkernel keyword.operator.laplace
 #                                      ^ source.lapkernel
@@ -293,7 +293,7 @@
 #             ^ source.lapkernel
 #              ^ source.lapkernel constant.numeric.lapkernel
 #               ^ source.lapkernel
-#                ^^^ source.lapkernel variable.language.context.lapkernel
+#                ^^^ source.lapkernel constant.language.context.lapkernel
 #                   ^^^^ source.lapkernel
 >      c += log1p_exp(-(q_new[i] - q[i]) * grad[i]) - log1p_exp(-(q[i] - q_new[i]) * g_new[i]);
 #^^^^^^^^ source.lapkernel
@@ -305,11 +305,11 @@
 #                      ^^^^^^^^^^ source.lapkernel
 #                                ^ source.lapkernel keyword.operator.laplace
 #                                 ^ source.lapkernel
-#                                  ^ source.lapkernel variable.language.context.lapkernel
+#                                  ^ source.lapkernel constant.language.context.lapkernel
 #                                   ^^^^^ source.lapkernel
 #                                        ^ source.lapkernel keyword.operator.laplace
 #                                         ^ source.lapkernel
-#                                          ^^^^ source.lapkernel variable.language.context.lapkernel
+#                                          ^^^^ source.lapkernel constant.language.context.lapkernel
 #                                              ^^^^^ source.lapkernel
 #                                                   ^ source.lapkernel keyword.operator.laplace
 #                                                    ^ source.lapkernel
@@ -317,7 +317,7 @@
 #                                                              ^ source.lapkernel
 #                                                               ^ source.lapkernel keyword.operator.laplace
 #                                                                ^ source.lapkernel
-#                                                                 ^ source.lapkernel variable.language.context.lapkernel
+#                                                                 ^ source.lapkernel constant.language.context.lapkernel
 #                                                                  ^^^^ source.lapkernel
 #                                                                      ^ source.lapkernel keyword.operator.laplace
 #                                                                       ^^^^^^^^^^^ source.lapkernel

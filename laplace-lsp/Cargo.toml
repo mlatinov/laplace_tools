@@ -20,8 +20,8 @@ description = "Language server for .laplace files (semantic tokens, completion, 
 #   [patch."https://github.com/mlatinov/laplace"]
 #   laplace = { path = "../../laplace" }
 #   laplace-sampler-syntax = { path = "../../laplace/laplace-sampler-syntax" }
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "be5cb4609780b00e4334b4b321c880e05cb7c66f" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "be5cb4609780b00e4334b4b321c880e05cb7c66f" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["rt-multi-thread", "io-std", "io-util", "macros", "sync", "time"] }
 serde = { version = "1", features = ["derive"] }

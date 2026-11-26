@@ -11,7 +11,9 @@ Custom samplers are experimental in `laplace` 0.3.0, and so is this support.
 
 - Two new languages: `.lapkernel` (a custom kernel) and `.lapsampler`
   (which kernel updates which parameters).
-  - Highlighting.
+  - Highlighting. The context values `q`, `lp`, `grad`, `dim` and `metric`
+    are scoped `constant.language`, so themes colour them apart from your own
+    variables.
   - Comments, brackets and indentation.
   - Snippets. `kernel` and `kernel-direct` are what
     `laplace new kernel` writes.
@@ -21,7 +23,8 @@ Custom samplers are experimental in `laplace` 0.3.0, and so is this support.
   names kernel files and packages; those are read and checked too. Saving a
   kernel re-checks the open samplers.
 - Hover:
-  - in `.lapkernel`, the built-ins, including laplace's kernel math library
+  - in `.lapkernel`, the built-ins, including the context values (`q`, `lp`,
+    `grad`, `dim`, `metric`: scale, cost, behaviour under a block), laplace's kernel math library
     (`inv_logit`, `log1p_exp`, `log_sum_exp`, ...), `@adapt` and its tags
     (`step_size`, `metric`, `target_accept`), and `propose`/`move` in depth;
   - in `.lapsampler`, kernels (what `laplace sampler doc` prints),

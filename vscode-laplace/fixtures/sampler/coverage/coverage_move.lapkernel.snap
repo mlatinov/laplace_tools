@@ -18,7 +18,7 @@
 #^^^^ source.lapkernel
 #    ^^^^ source.lapkernel keyword.control.terminal.lapkernel
 #        ^ source.lapkernel
-#         ^ source.lapkernel variable.language.context.lapkernel
+#         ^ source.lapkernel constant.language.context.lapkernel
 #          ^^^ source.lapkernel
 >  }
 #^^^^ source.lapkernel

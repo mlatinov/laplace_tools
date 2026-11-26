@@ -25,14 +25,14 @@ laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 | `editor/phase-4` (no PR yet) | Phases 0–4, each stacked on the one before: languages, grammars, snippets, diagnostics, hover, completion, definition, signature help, versions, CI | 25 commits ahead of `main`, 0 behind; not pushed until Metodi says |
 
 `laplace-lsp` depends on the `laplace` and `laplace-sampler-syntax` crates
-by git, pinned to `be5cb46` (the tip of `sampler/kernel-math`, on top of
+by git, pinned to `3636190` (the tip of `sampler/kernel-math`, on top of
 laplace #8). The branch is pushed, so fresh builds and CI can fetch it.
 When #8 merges, open the `sampler/kernel-math` PR against `main` and merge
 it before moving the pin to `main`.
 
 ```toml
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "be5cb4609780b00e4334b4b321c880e05cb7c66f" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "be5cb4609780b00e4334b4b321c880e05cb7c66f" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3636190b459fdc8dc67d945359fedd303485b1c8" }
 ```
 
 ## Order
