@@ -11,7 +11,7 @@ Metodi's to take: nothing has been merged, tagged or published.
 |---|---|---|---|
 | [#7](https://github.com/mlatinov/laplace/pull/7) | `editor-api/syntax-crate` → `main` | The `laplace-sampler-syntax` crate: the sampler parsers and model-free checks, buildable without libclang; CI for it | open; 3 commits ahead of `main`, 0 behind |
 | [#8](https://github.com/mlatinov/laplace/pull/8) | `editor-api/symbols` → `editor-api/syntax-crate` | `builtins()`, `combinators()`, `kernel_index()`; built-in signatures in the registry; only nearby files indexed without a lock (Q9) | open; 4 commits on top of #7 |
-| (no PR yet) | `sampler/kernel-math` → `editor-api/symbols` | The kernel math library (32 safe Stan functions, `docs/sampler/kernel-functions.md`); library names no longer reserved; deeper `propose`/`move` docs; `ADAPT_DOC`, `adapt_tags()` | 1 commit on top of #8; pushed, no PR yet |
+| [#9](https://github.com/mlatinov/laplace/pull/9) | `sampler/kernel-math` → `editor-api/symbols` | The kernel math library (32 safe Stan functions, `docs/sampler/kernel-functions.md`); library names no longer reserved; deeper `propose`/`move` docs; `ADAPT_DOC`, `adapt_tags()` | open; 1 commit on top of #8 |
 
 laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 `main`, which already has the sampler work. It doesn't block anything here.
