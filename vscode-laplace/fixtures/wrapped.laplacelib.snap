@@ -22,14 +22,8 @@
 >  // @brief Log-sum-exp of a vector, guarded against overflow.
 #^^ source.laplacelib
 #  ^^^ source.laplacelib comment.line.double-slash.laplace
-#     ^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#           ^^^^ source.laplacelib
-#               ^ source.laplacelib keyword.operator.laplace
-#                ^^^ source.laplacelib
-#                   ^ source.laplacelib keyword.operator.laplace
-#                    ^^^^^^^^^ source.laplacelib
-#                             ^^^^^^ source.laplacelib storage.type.laplace
-#                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib
+#     ^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >  real lse(vector x) {
 #^^ source.laplacelib
 #  ^^^^ source.laplacelib storage.type.laplace

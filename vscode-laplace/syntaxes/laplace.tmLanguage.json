@@ -95,11 +95,10 @@
           "patterns": []
         },
         {
-          "match": "(//\\s*)(@(?:brief|param|return|example|math)\\b)",
+          "comment": "// @brief / @param / @return / @example / @math <text>: the whole line is a comment, with the tag highlighted. A @param's name is not singled out: library docs write both `@param x text` and `@param vector x : text`.",
+          "name": "comment.line.double-slash.laplace",
+          "match": "(//)\\s*(@(?:brief|param|return|example|math))\\b.*$",
           "captures": {
-            "1": {
-              "name": "comment.line.double-slash.laplace"
-            },
             "2": {
               "name": "keyword.other.doctag.laplace"
             }

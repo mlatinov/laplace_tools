@@ -749,42 +749,23 @@
 #^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace storage.type.annotation.laplace
 >//@brief Churn Cure Log-Logistics Log pointwise Density function
 #^^ source.laplacelib comment.line.double-slash.laplace
-#  ^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#        ^^^^^^^^^^^^^^^ source.laplacelib
-#                       ^ source.laplacelib keyword.operator.laplace
-#                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib
+#  ^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >//@param vector t   : Time since origin t > 0.
 #^^ source.laplacelib comment.line.double-slash.laplace
-#  ^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#        ^ source.laplacelib
-#         ^^^^^^ source.laplacelib storage.type.laplace
-#               ^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib
-#                                          ^ source.laplacelib keyword.operator.laplace
-#                                           ^ source.laplacelib
-#                                            ^ source.laplacelib constant.numeric.laplace
-#                                             ^^ source.laplacelib
+#  ^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >//@param real alpha : Scale parameter (alpha > 0).
 #^^ source.laplacelib comment.line.double-slash.laplace
-#  ^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#        ^ source.laplacelib
-#         ^^^^ source.laplacelib storage.type.laplace
-#             ^^^^^^^^^^^^^^^ source.laplacelib
-#                            ^^^^^^^^^ source.laplacelib entity.name.function.laplace
-#                                     ^ source.laplacelib
-#                                      ^^^^^^^ source.laplacelib
-#                                             ^ source.laplacelib keyword.operator.laplace
-#                                              ^ source.laplacelib
-#                                               ^ source.laplacelib constant.numeric.laplace
-#                                                ^^^ source.laplacelib
+#  ^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >//@return real      : Total log likelihood of the mixture cure model.
 #^^ source.laplacelib comment.line.double-slash.laplace
-#  ^^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#         ^ source.laplacelib
-#          ^^^^ source.laplacelib storage.type.laplace
-#              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib
+#  ^^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >//@math
 #^^ source.laplacelib comment.line.double-slash.laplace
-#  ^^^^^ source.laplacelib keyword.other.doctag.laplace
+#  ^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
 >// \pi_n = \operatorname{logit}^{-1}(\psi_n) \\
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >// \log h(t_n) = \log\beta - \log\alpha_n + (\beta - 1)\left(\log t_n - \log\alpha_n\right) - \operatorname{log1p}\left((t_n/\alpha_n)^{\beta}\right), \quad H(t_n) = \operatorname{log1p}\left((t_n/\alpha_n)^{\beta}\right) \\

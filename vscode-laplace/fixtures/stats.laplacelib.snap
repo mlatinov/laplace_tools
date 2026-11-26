@@ -20,37 +20,20 @@
 >
 >// @brief Standardise a vector to mean 0, sd 1.
 #^^^ source.laplacelib comment.line.double-slash.laplace
-#   ^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#         ^^^^^^^^^^^^^^^ source.laplacelib
-#                        ^^^^^^ source.laplacelib storage.type.laplace
-#                              ^^^^^^^^^ source.laplacelib
-#                                       ^ source.laplacelib constant.numeric.laplace
-#                                        ^^^^^ source.laplacelib
-#                                             ^ source.laplacelib constant.numeric.laplace
-#                                              ^^ source.laplacelib
+#   ^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >// @param x the vector to standardise
 #^^^ source.laplacelib comment.line.double-slash.laplace
-#   ^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#         ^^^^^^^ source.laplacelib
-#                ^^^^^^ source.laplacelib storage.type.laplace
-#                      ^^^^^^^^^^^^^^^^ source.laplacelib
+#   ^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >// @return the standardised vector
 #^^^ source.laplacelib comment.line.double-slash.laplace
-#   ^^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#          ^^^^^^^^^^^^^^^^^^ source.laplacelib
-#                            ^^^^^^ source.laplacelib storage.type.laplace
+#   ^^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#          ^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >// @example z_score([1.0, 2.0, 3.0]')
 #^^^ source.laplacelib comment.line.double-slash.laplace
-#   ^^^^^^^^ source.laplacelib keyword.other.doctag.laplace
-#           ^ source.laplacelib
-#            ^^^^^^^ source.laplacelib entity.name.function.laplace
-#                   ^^ source.laplacelib
-#                     ^^^ source.laplacelib constant.numeric.laplace
-#                        ^^ source.laplacelib
-#                          ^^^ source.laplacelib constant.numeric.laplace
-#                             ^^ source.laplacelib
-#                               ^^^ source.laplacelib constant.numeric.laplace
-#                                  ^^^^ source.laplacelib
+#   ^^^^^^^^ source.laplacelib comment.line.double-slash.laplace keyword.other.doctag.laplace
+#           ^^^^^^^^^^^^^^^^^^^^^^^^^^ source.laplacelib comment.line.double-slash.laplace
 >vector z_score(vector x) {
 #^^^^^^ source.laplacelib storage.type.laplace
 #      ^ source.laplacelib
