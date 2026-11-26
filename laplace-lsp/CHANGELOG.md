@@ -20,6 +20,14 @@
 - Kernels get laplace's new math library (`inv_logit`, `log1p_exp`,
   `log_sum_exp`, `fmax`, `softmax`, ... with hover docs). A kernel function
   with a library function's name shows as the kernel's own function.
+- Kernels get laplace's standard library (laplace `05d02d8`): about 120
+  more functions under Stan's names, all with hover, completion and
+  signature help: trigonometry, rounding, `to_int` and other conversions,
+  vector building and reshaping, matrix rows and columns, linear algebra,
+  20 random-number generators (`categorical_rng`, `gamma_rng`,
+  `multi_normal_cholesky_rng`, ...) and 22 densities. `_lpmf`, `_lcdf` and
+  `_lccdf` calls take `y | ...` like `_lpdf`. Elementwise functions show
+  their matrix overload.
 - Parameter names inside `block(...)` come from the model's
   `parameters { }` block. The model is a `// model:` comment, else the
   `.laplace` file with the sampler's name, else the only `.laplace` file

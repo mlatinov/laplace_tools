@@ -209,7 +209,9 @@ fn kernel_hover_on_the_math_library_and_on_own_functions() {
     assert!(md("log1p_exp(lp)").contains("this kernel's own function"));
     let inv = md("inv_logit(lp))");
     assert!(
-        inv.starts_with("```lapkernel\nreal inv_logit(real x)\nvector inv_logit(vector x)\n```"),
+        inv.starts_with(
+            "```lapkernel\nreal inv_logit(real x)\nvector inv_logit(vector x)\nmatrix inv_logit(matrix x)\n```"
+        ),
         "{inv}"
     );
     assert!(inv.contains("without overflow"), "{inv}");

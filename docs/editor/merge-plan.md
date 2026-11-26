@@ -12,6 +12,9 @@ Metodi's to take: nothing has been merged, tagged or published.
 | [#7](https://github.com/mlatinov/laplace/pull/7) | `editor-api/syntax-crate` → `main` | The `laplace-sampler-syntax` crate: the sampler parsers and model-free checks, buildable without libclang; CI for it | merged 2026-11-26 (`bd106bc`) |
 | [#8](https://github.com/mlatinov/laplace/pull/8) | `editor-api/symbols` → `editor-api/syntax-crate` | `builtins()`, `combinators()`, `kernel_index()`; built-in signatures in the registry; only nearby files indexed without a lock (Q9) | merged 2026-11-26 (`029cda3`) |
 | [#9](https://github.com/mlatinov/laplace/pull/9) | `sampler/kernel-math` → `editor-api/symbols` | The kernel math library (32 safe Stan functions, `docs/sampler/kernel-functions.md`); library names no longer reserved; deeper `propose`/`move` docs; `ADAPT_DOC`, `adapt_tags()` | merged 2026-11-26 (`3051d20`) |
+| [#10](https://github.com/mlatinov/laplace/pull/10) | `kernel/matrix-builtins` → `main` | `col`, `row`, `set_col`, `set_row`, `rows`, `cols`, `rep_matrix` | merged 2026-11-26 |
+| [#11](https://github.com/mlatinov/laplace/pull/11) | `kernel/log-density-no-grad` → `main` | `log_density` is density-only (it computed and billed a gradient) | merged 2026-11-26 |
+| [#12](https://github.com/mlatinov/laplace/pull/12) | `kernel/stdlib-expansion` → `main` | The kernel standard library: 119 more functions under Stan's names (trigonometry, rounding, conversions, linear algebra, 20 RNGs, 22 densities) | merged 2026-11-26 (`05d02d8`) |
 
 laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 `main`, which already has the sampler work. It doesn't block anything here.
@@ -25,12 +28,12 @@ laplace PR #6 (`sampler/phase-3`) is unrelated: it's 36 commits behind
 | `editor/phase-4` (no PR yet) | Phases 0–4, each stacked on the one before: languages, grammars, snippets, diagnostics, hover, completion, definition, signature help, versions, CI | 25 commits ahead of `main`, 0 behind; not pushed until Metodi says |
 
 `laplace-lsp` depends on the `laplace` and `laplace-sampler-syntax` crates
-by git, pinned to `3051d20`, the `laplace` `main` commit that merged #7, #8
-and #9 (steps 1 and 2 below are done):
+by git, pinned to `05d02d8`, the `laplace` `main` commit that merged #12
+(and so #7 to #11; steps 1 and 2 below are done):
 
 ```toml
-laplace = { git = "https://github.com/mlatinov/laplace", rev = "3051d207e9cc649c4bc5ba3496f113e10925968a" }
-laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "3051d207e9cc649c4bc5ba3496f113e10925968a" }
+laplace = { git = "https://github.com/mlatinov/laplace", rev = "05d02d8d82912f415467ae89cf43cd56d07ce699" }
+laplace-sampler-syntax = { git = "https://github.com/mlatinov/laplace", rev = "05d02d8d82912f415467ae89cf43cd56d07ce699" }
 ```
 
 ## Order
